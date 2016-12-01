@@ -25,6 +25,7 @@
 
 #include "AutogenMetadata.h"
 
+#include "Version.h"
 
 #include "net/Network2.h"
 #include "net/NetworkMessagesTypes.h"
@@ -111,7 +112,6 @@ void Game::InitGlobalObjects()
     map_ = new MapMaster(sync_random_, texts);
     qDebug() << "End master load";
     factory_ = new ObjectFactory(this);
-    id_ptr_id_table = &(factory_->GetIdTable());
     Chat* chat = new Chat(this);
     chat_ = chat;
     names_ = new Names(sync_random_);
@@ -129,9 +129,9 @@ void Game::InitGlobalObjects()
 void Game::MakeTiles(int new_map_x, int new_map_y, int new_map_z)
 {
     GetMap().ResizeMap(new_map_x, new_map_y, new_map_z);
-    for(int x = 0; x < GetMap().GetWidth(); x++)
+    for (int x = 0; x < GetMap().GetWidth(); x++)
     {
-        for(int y = 0; y < GetMap().GetHeight(); y++)
+        for (int y = 0; y < GetMap().GetHeight(); y++)
         {
             for (int z = 0; z < GetMap().GetDepth(); z++)
             {
@@ -166,7 +166,6 @@ void Game::Process()
         {
             break;
         }
-
         ProcessInputMessages();
 
         const int ATMOS_OFTEN = 1;
@@ -295,7 +294,7 @@ void Game::InitWorld(int id, QString map_name)
 
             for (auto it = GetFactory().GetIdTable().begin();
                       it != GetFactory().GetIdTable().end();
-                      ++it)
+                    ++it)
             {
                 if (it->object && (it->object->RT_ITEM() == SpawnPoint::REAL_TYPE_ITEM))
                 {
@@ -485,8 +484,9 @@ void Game::ProcessInputMessages()
                 serializer_.ResetIndex();
                 GetFactory().Save(serializer_);
                 data = QByteArray(serializer_.GetData(), serializer_.GetIndex());
-                // TODO: remove (?)
-                AddLastMessages(data);
+
+                AddLastMessages(&data);
+                AddBuildInfo(&data);
 
                 qDebug() << " " << data.length();
             }
@@ -707,15 +707,15 @@ void Game::generateUnsync()
     }
 }
 
-void Game::AddLastMessages(QByteArray& data)
+void Game::AddLastMessages(QByteArray* data)
 {
-    data.append('\n');
+    data->append('\n');
     for (int i = (log_pos_ + 1) % messages_log_.size();
              i != log_pos_;
              i = (i + 1) % messages_log_.size())
     {
-        data.append(QByteArray::number(messages_log_[i].type) + " ");
-        data.append(messages_log_[i].json + '\n');
+        data->append(QByteArray::number(messages_log_[i].type) + " ");
+        data->append(messages_log_[i].json + '\n');
     }
 }
 
@@ -723,6 +723,13 @@ void Game::AddMessageToMessageLog(Message2 message)
 {
     messages_log_[log_pos_] = message;
     log_pos_ = (log_pos_ + 1) % messages_log_.size();
+}
+
+void Game::AddBuildInfo(QByteArray* data)
+{
+    QString system_info("Build info: %1, Qt: %2");
+    system_info = system_info.arg(GetBuildInfo()).arg(GetQtVersion());
+    data->append(system_info);
 }
 
 void Game::ProcessBroadcastedMessages()

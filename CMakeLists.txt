@@ -5,6 +5,7 @@ option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_COVER "Generate test coverage" OFF)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 include(ClangFormat)
 
@@ -189,11 +190,30 @@ if(NOT CLIENT_VERSION)
 endif()
 message(STATUS ${CLIENT_VERSION})
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(BITS_VERSION 64)
+else(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(BITS_VERSION 32)
+else()
+    message(FATAL_ERROR "Unsupported compiler bits version!")
+endif()
+set(SYSTEM_INFO "\
+System: ${CMAKE_SYSTEM}, \
+Compiler: ${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}, \
+Bits version: ${BITS_VERSION}\
+")
+message(STATUS ${SYSTEM_INFO})
+
 # Version.cpp generation
 execute_process(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/version.py ${CLIENT_VERSION}
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/version.py
+    ${CLIENT_VERSION} ${SYSTEM_INFO}
+    RESULT_VARIABLE VERSION_GENERATION_RETVAL
 )
+if(NOT VERSION_GENERATION_RETVAL EQUAL 0)
+    message(FATAL_ERROR "Unable to generate 'Version.cpp' file!")
+endif()
 
 ###
 ### End checking build version
@@ -281,6 +301,11 @@ if(BUILD_TESTS)
     target_link_libraries(KVEngine gmock)
     if(MSVC)
         set_target_properties(KVEngine PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:CONSOLE")
+        set_target_properties(KVEngine PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+    endif()
+else()
+    if(MSVC)
+        target_link_libraries(KVEngine Qt5::WinMain)
     endif()
 endif()
 
