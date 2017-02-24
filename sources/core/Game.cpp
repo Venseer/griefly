@@ -245,8 +245,10 @@ void Game::Process()
 }
 
 const QString ON_LOGIN_MESSAGE =
-        "Welcome to Griefly! It is yet another space station remake, so if you are here then you probably already know how to play."
+        "Welcome to Griefly! It is yet another space station remake, so if you are here then you probably"
+        " already know how to play."
         " Just in case: arrows for movement, left mouse click for hand actions (hit, attack, take), chat for speaking."
+        " Pull objects - ctrl + click, rotate objects - R + click, look at objects - shift + click."
         " Use prefix ooc in the chat if you would like to use the ooc channel (it is a global channel).\n";
 
 void Game::WaitForExit()
@@ -277,11 +279,11 @@ void Game::InitWorld(int id, QString map_name)
         QString mapgen_name = GetParamsHolder().GetParam<QString>("mapgen_name");
         if (QFileInfo::exists(mapgen_name))
         {
-            srand(QTime::currentTime().msecsSinceStartOfDay());
+            qsrand(QDateTime::currentDateTime().toMSecsSinceEpoch());
+            unsigned int seed = static_cast<unsigned int>(qrand());
+            GetRandom().SetRand(seed, 0);
 
             GetFactory().LoadFromMapGen(GetParamsHolder().GetParam<QString>("mapgen_name"));
-            qDebug() << "End load from mapgen atmpsphere";
-
 
             GetFactory().CreateImpl(Lobby::T_ITEM_S());
 
@@ -322,6 +324,8 @@ void Game::InitWorld(int id, QString map_name)
     else
     {
         qDebug() << "Begin load map";
+        QElapsedTimer load_timer;
+        load_timer.start();
 
         QByteArray map_data = Network2::GetInstance().GetMapData();
 
@@ -334,6 +338,8 @@ void Game::InitWorld(int id, QString map_name)
         FastDeserializer deserializer(map_data.data(), map_data.size());
 
         GetFactory().Load(deserializer, id);
+
+        qDebug() << "Map is loaded, " << load_timer.elapsed() << " ms";
     }
 
     GetChat().PostText(ON_LOGIN_MESSAGE);

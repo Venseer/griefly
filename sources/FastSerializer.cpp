@@ -29,3 +29,61 @@ FastSerializer::~FastSerializer()
 {
     // Nothing
 }
+
+QString Humanize(FastDeserializer *deserializer)
+{
+    QString retval;
+    QTextStream stream(&retval);
+    while (!deserializer->IsEnd())
+    {
+        FastSerializer::Type type = deserializer->GetNextType();
+        if (type == FastSerializer::BOOL_TYPE)
+        {
+            bool value;
+            *deserializer >> value;
+            stream << value;
+        }
+        else if (type == FastSerializer::INT32_TYPE)
+        {
+            qint32 value;
+            *deserializer >> value;
+            stream << value;
+        }
+        else if (type == FastSerializer::UINT32_TYPE)
+        {
+            quint32 value;
+            *deserializer >> value;
+            stream << value;
+        }
+        else if (type == FastSerializer::STRING_TYPE)
+        {
+            QString value;
+            *deserializer >> value;
+            stream << value.replace(' ', "$");
+        }
+        else if (type == FastSerializer::BYTEARRAY_TYPE)
+        {
+            QByteArray value;
+            *deserializer >> value;
+            stream << value.toHex();
+        }
+        else if (type == FastSerializer::TYPE_TYPE)
+        {
+            QString value;
+            deserializer->ReadType(&value);
+            if (value == END_TYPE)
+            {
+                break;
+            }
+            stream << "\r\n" << value;
+        }
+        else
+        {
+            qDebug() << "Unknown type: " << type;
+            KvAbort();
+        }
+        stream << " ";
+    }
+
+    return retval;
+}

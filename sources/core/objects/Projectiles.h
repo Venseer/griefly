@@ -11,7 +11,7 @@ class Projectile : public IMovable
 {
 public:
     Projectile(quint32 id);
-    DECLARE_SAVED(Projectile, IMovable)	
+    DECLARE_SAVED(Projectile, IMovable)
     DECLARE_GET_TYPE_ITEM(Projectile)
     void MakeMovementPattern(VDir target, Dir facing);
     virtual void Process() override;
@@ -20,12 +20,14 @@ public:
     virtual void ProcessForce() override {}
     void MakeMovementLoops(int d1_number, int d2_number, Dir d1, Dir d2);
     int GetDamage();
+    int GetBurnDamage();
     virtual bool CheckPassable() override;
 protected:
     bool CheckHumanTile();
     bool KV_SAVEBLE(harmless_);
 
     int KV_SAVEBLE(damage_);
+    int KV_SAVEBLE(burn_damage_);
 private:
     bool ProcessMovement();
 

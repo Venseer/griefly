@@ -33,7 +33,7 @@ public:
 
     virtual unsigned int Hash()
     {
-        return GetId();
+        return GetId() + GetFreq();
     }
 
     virtual void Delete();
@@ -70,7 +70,7 @@ public:
     void SetFreq(int freq);
     int GetFreq() const { return how_often_; }
     void SetGame(IGame* game) { game_ = game; }
-protected:
+
     IGame& GetGame();
     const IGame& GetGame() const;
     IObjectFactory& GetFactory();

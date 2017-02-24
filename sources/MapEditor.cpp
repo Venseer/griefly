@@ -227,7 +227,27 @@ void MapEditor::SaveMapgen(const QString& name)
         qDebug() << file.fileName() << " cannot be opened.";
         return;
     }
-    file.write(data.GetData(), data.GetIndex());
+
+    // Binary mapgen is really bad for version control systems, so
+    // converting it to hex with line breaks
+
+    QByteArray hex = QByteArray(data.GetData(), data.GetIndex()).toHex();
+
+    int index = -1;
+    int old_index = 0;
+    while (true)
+    {
+        index = hex.indexOf("0602", index + 1);
+        if (index == -1)
+        {
+            break;
+        }
+        file.write(hex.data() + old_index, index - old_index);
+        file.write("\n");
+        old_index = index;
+    }
+    file.write(hex.data() + old_index, hex.size() - old_index);
+    file.write("\n");
 }
 
 void MapEditor::LoadMapgen(const QString& name)
@@ -241,7 +261,18 @@ void MapEditor::LoadMapgen(const QString& name)
 
     ClearMap();
 
-    QByteArray raw_data = file.readAll();
+    QByteArray raw_data;
+    while (file.bytesAvailable())
+    {
+        QByteArray local = file.readLine();
+        if (local.size() < 1)
+        {
+            break;
+        }
+        local = local.left(local.size() - 1);
+        raw_data.append(local);
+    }
+    raw_data = QByteArray::fromHex(raw_data);
     FastDeserializer data(raw_data.data(), raw_data.size());
 
     int x;
@@ -254,6 +285,8 @@ void MapEditor::LoadMapgen(const QString& name)
     data >> z;
 
     Resize(x, y, z);
+
+    qDebug() << x << y << z;
 
     while (!data.IsEnd())
     {
@@ -366,7 +399,7 @@ void MapEditor::AddItem(const QString &item_type)
 
 void MapEditor::UpdateDirs(MapEditor::EditorEntry* ee)
 {
-    QByteArray& data = ee->variables["dMove"];
+    QByteArray& data = ee->variables["direction_"];
     if (ee && data.size())
     {
         FastDeserializer deserializer(data.data(), data.size());
@@ -390,6 +423,10 @@ void MapEditor::RemoveItems()
             RemoveItems(x, y, 0);
         }
     }
+
+    emit newSelectionSetted(
+        first_selection_x_, first_selection_y_,
+        second_selection_x_, second_selection_y_);
 }
 
 void MapEditor::RemoveItems(int posx, int posy, int posz)
@@ -401,10 +438,6 @@ void MapEditor::RemoveItems(int posx, int posy, int posz)
         delete it->pixmap_item;
     }
     items.clear();
-
-    emit newSelectionSetted(
-                first_selection_x_, first_selection_y_,
-                second_selection_x_, second_selection_y_);
 }
 
 MapEditor::EditorEntry& MapEditor::AddItem(const QString &item_type, int posx, int posy, int posz)
@@ -421,6 +454,17 @@ MapEditor::EditorEntry& MapEditor::AddItem(const QString &item_type, int posx, i
 
 void MapEditor::SetTurf(const QString &item_type)
 {
+    // For performance everything should be removed firstly
+    for (int x = pointer_.first_posx; x <= pointer_.second_posx; ++x)
+    {
+        for (int y = pointer_.first_posy; y <= pointer_.second_posy; ++y)
+        {
+            scene_->removeItem(editor_map_[x][y][0].turf.pixmap_item);
+            delete editor_map_[x][y][0].turf.pixmap_item;
+            editor_map_[x][y][0].turf.pixmap_item = nullptr;
+        }
+    }
+
     for (int x = pointer_.first_posx; x <= pointer_.second_posx; ++x)
     {
         for (int y = pointer_.first_posy; y <= pointer_.second_posy; ++y)
@@ -530,5 +574,10 @@ void MapEditor::ClearMap()
 std::vector<MapEditor::EditorEntry>& MapEditor::GetEntriesFor(int posx, int posy, int posz)
 {
     return editor_map_[posx][posy][posz].items;
+}
+
+MapEditor::EditorEntry& MapEditor::GetTurfFor(int posx, int posy, int posz)
+{
+    return editor_map_[posx][posy][posz].turf;
 }
 

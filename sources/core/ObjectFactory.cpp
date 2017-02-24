@@ -73,6 +73,12 @@ void ObjectFactory::ForeachProcess()
 {
     UpdateProcessingItems();
 
+    const int CLEAR_TICK = 10;
+    if (MAIN_TICK % CLEAR_TICK == 1)
+    {
+        ClearProcessing();
+    }
+
     quint32 table_size = process_table_.size();
     for (quint32 i = 0; i < table_size; ++i)
     {
@@ -156,17 +162,9 @@ void ObjectFactory::LoadMapHeader(FastDeserializer& savefile)
     }
 }
 
-const QString END_TYPE = "0~$";
-
 void ObjectFactory::Save(FastSerializer& savefile)
 {
     SaveMapHeader(savefile);
-
-    if (objects_table_.empty())
-    {
-        qDebug() << "Trying to save empty world!";
-        KvAbort();
-    }
 
     auto it = ++objects_table_.begin();
     while (it != objects_table_.end())
@@ -186,15 +184,8 @@ void ObjectFactory::Load(FastDeserializer& savefile, quint32 real_this_mob)
     Clear();
 
     LoadMapHeader(savefile);
-    int j = 0;
     while (!savefile.IsEnd())
     {
-        j++;
-        if (savefile.IsEnd())
-        {
-            qDebug() << "Error! " << j << "\n";
-            KvAbort();
-        }
         QString type;
         savefile.ReadType(&type);
 
@@ -204,19 +195,17 @@ void ObjectFactory::Load(FastDeserializer& savefile, quint32 real_this_mob)
             break;
         }
 
-        //SYSTEM_STREAM << "Line number: " << j << std::endl;
-
         quint32 id_loc;
         savefile >> id_loc;
-        
+
         IMainObject* object = CreateVoid(type, id_loc);
         object->Load(savefile);
     }
-    qDebug() << "\n NUM OF ELEMENTS CREATED: " << j;
-    qDebug() << "SET MOB START" << GetPlayerId(real_this_mob);
-    game_->SetMob(GetPlayerId(real_this_mob));
-    qDebug() << "SET MOB END" << game_->GetMob().Id();
-    game_->ChangeMob(game_->GetMob());
+
+    quint32 player_id = GetPlayerId(real_this_mob);
+    game_->SetMob(player_id);
+    qDebug() << "Player id:" << player_id;
+    game_->ChangeMob(player_id);
     is_world_generating_ = false;
 
     game_->GetMap().GetAtmosphere().LoadGrid();
@@ -224,18 +213,27 @@ void ObjectFactory::Load(FastDeserializer& savefile, quint32 real_this_mob)
 
 void ObjectFactory::LoadFromMapGen(const QString& name)
 {
-    //qDebug() << "Start clear";
     Clear();
-    //qDebug() << "End clear";
 
     QFile file(name);
     if (!file.open(QIODevice::ReadOnly))
     {
-        qDebug() << "Error open " << name;
-        return;
+        qDebug() << "Error open: " << name;
+        KvAbort();
     }
 
-    QByteArray raw_data = file.readAll();
+    QByteArray raw_data;
+    while (file.bytesAvailable())
+    {
+        QByteArray local = file.readLine();
+        if (local.size() < 1)
+        {
+            break;
+        }
+        local = local.left(local.size() - 1);
+        raw_data.append(local);
+    }
+    raw_data = QByteArray::fromHex(raw_data);
     FastDeserializer ss(raw_data.data(), raw_data.size());
 
     BeginWorldCreation();
@@ -311,16 +309,7 @@ void ObjectFactory::LoadFromMapGen(const QString& name)
 
 IMainObject* ObjectFactory::NewVoidObject(const QString& type, quint32 id)
 {
-    //qDebug() << "NewVoidObject: " << QString::fromStdString(type);
-    auto& il = (*GetItemsCreators());
-    //qDebug() << il.size();
-    auto f = il[type];
-
-    //qDebug() << f;
-
-    IMainObject* retval = f(id);
-    //qDebug() << "NewVoidObject end";
-    return retval;
+    return (*GetItemsCreators())[type](id);
 }
 
 IMainObject* ObjectFactory::NewVoidObjectSaved(const QString& type)
@@ -373,11 +362,6 @@ void ObjectFactory::FinishWorldCreation()
 quint32 ObjectFactory::CreateImpl(const QString &type, quint32 owner_id)
 {
     IMainObject* item = NewVoidObject(type, id_);
-    if (item == 0)
-    {
-        qDebug() << "Unable to create object: " << type;
-        KvAbort();
-    }
     item->SetGame(game_);
 
     if (id_ >= objects_table_.size())
@@ -392,7 +376,6 @@ quint32 ObjectFactory::CreateImpl(const QString &type, quint32 owner_id)
     {
         if (CastTo<ITurf>(item) != nullptr)
         {
-            qDebug() << "is_turf == true";
             owner->SetTurf(item->GetId());
         }
         else if (!owner->AddItem(item->GetId()))
@@ -486,8 +469,12 @@ quint32 ObjectFactory::GetPlayerId(quint32 net_id)
 quint32 ObjectFactory::GetNetId(quint32 real_id)
 {
     for (auto it = players_table_.begin(); it != players_table_.end(); ++it)
+    {
         if (it->second == real_id)
+        {
             return it->first;
+        }
+    }
     return 0;
 }
 
