@@ -24,10 +24,15 @@
 int main(int argc, char *argv[])
 {
     // LCOV_EXCL_START
-    qRegisterMetaType<Message2>();
+    qRegisterMetaType<Message>();
 
     GetParamsHolder().ParseParams(argc, argv);
     QApplication app(argc, argv);
+
+    if (GetParamsHolder().GetParamBool("-output_redirect"))
+    {
+        kv::InitializeLog();
+    }
 
     InitRealTypes();
     InitCastTable();
@@ -50,10 +55,6 @@ int main(int argc, char *argv[])
     // LCOV_EXCL_START
     app.setStyle(QStyleFactory::create("fusion"));
 
-    if (GetParamsHolder().GetParamBool("-output_redirect"))
-    {
-        InitializeLog();
-    }
     if (!GetParamsHolder().GetParamBool("-editor"))
     {
         MainForm main_form;

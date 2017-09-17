@@ -8,7 +8,22 @@
 
 #include "Idptr.h"
 
-inline unsigned int hash(const QString& str)
+namespace std
+{
+    template<>
+    class hash<QString> {
+    public:
+        size_t operator()(const QString& value) const
+        {
+            return static_cast<size_t>(qHash(value));
+        }
+    };
+}
+
+namespace kv
+{
+
+inline unsigned int Hash(const QString& str)
 {
     unsigned int len = str.length();
     unsigned int hash;
@@ -25,37 +40,15 @@ inline unsigned int hash(const QString& str)
     return hash + 1;
 }
 
-namespace std
+inline unsigned int Hash(unsigned int value)
 {
-    template<>
-    class hash<QString> {
-    public:
-        size_t operator()(const QString& value) const
-        {
-            return std::hash<std::string>()(value.toStdString());
-        }
-    };
+    return value;
 }
 
-template<class T>
-unsigned int hash(const IdPtr<T>& h)
+inline unsigned int Hash(int value)
 {
-    return h.Id();
+    // The conversion is well-defined
+    return static_cast<unsigned int>(value);
 }
 
-template<class T>
-unsigned int hash(std::vector<IdPtr<T>>& content)
-{
-    unsigned int retval = 0;
-    int i = 1;
-    for (auto it = content.begin(); it != content.end(); ++it, ++i)
-    {
-        retval += it->Id() * i;
-    }
-    return retval;
-}
-
-inline unsigned int hash(unsigned int h)
-{
-    return h;
 }

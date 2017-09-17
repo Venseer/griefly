@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 project(KVEngineQt)
 
 option(BUILD_TESTS "Build tests" OFF)
@@ -6,6 +6,8 @@ option(BUILD_COVER "Generate test coverage" OFF)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+set(UTILS_DIR utils/)
 
 include(ClangFormat)
 
@@ -21,8 +23,6 @@ include(ClangFormat)
 find_package(Git REQUIRED)
 if(GIT_FOUND)
     message(STATUS "Git has been found, ${GIT_VERSION_STRING}")
-else()
-    message(FATAL_ERROR "Unable to find Git!")
 endif()
 
 ###########################
@@ -30,33 +30,24 @@ endif()
 # Qt5 search
 #
 ###########################
-find_package(Qt5Core REQUIRED)
-if(Qt5Core_FOUND)
-    message(STATUS "Qt5Core has been found")
-else()
-    message(FATAL_ERROR "Unable to find Qt5Core!")
-endif()
+find_package(Qt5 5.8 COMPONENTS Core Network Widgets OpenGL Multimedia REQUIRED)
 
-find_package(Qt5Network REQUIRED)
-if(Qt5Network_FOUND)
-    message(STATUS "Qt5Network has been found")
-else()
-    message(FATAL_ERROR "Unable to find Qt5Network!")
-endif()
+message(STATUS "Qt5 has been found: ${Qt5_VERSION}")
 
-find_package(Qt5Widgets REQUIRED)
-if(Qt5Widgets_FOUND)
-    message(STATUS "Qt5Widgets has been found")
-else()
-    message(FATAL_ERROR "Unable to find Qt5Widgets!")
-endif()
+get_target_property(QtCore_location Qt5::Core LOCATION)
+message(STATUS "Core path: ${QtCore_location}")
 
-find_package(Qt5OpenGL REQUIRED)
-if(Qt5OpenGL_FOUND)
-    message(STATUS "Qt5OpenGL has been found")
-else()
-    message(FATAL_ERROR "Unable to find Qt5OpenGL!")
-endif()
+get_target_property(QtNetwork_location Qt5::Network LOCATION)
+message(STATUS "Network path: ${QtNetwork_location}")
+
+get_target_property(QtWidgets_location Qt5::Widgets LOCATION)
+message(STATUS "Widgets path: ${QtWidgets_location}")
+
+get_target_property(QtOpenGL_location Qt5::OpenGL LOCATION)
+message(STATUS "OpenGL path: ${QtOpenGL_location}")
+
+get_target_property(QtMultimedia_location Qt5::Multimedia LOCATION)
+message(STATUS "Multimedia path: ${QtMultimedia_location}")
 
 # Some variables neeeded by Qt
 set(CMAKE_AUTOMOC ON)
@@ -71,55 +62,16 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Go 1.5 REQUIRED)
 if(GO_FOUND)
     message(STATUS "Go has been found, version: ${GO_VERSION}")
-else()
-    message(FATAL_ERROR "Unable to find Go!")
 endif()
 
 ###########################
 #
-# Python 2.7 search
+# Python 3.5 search
 #
 ###########################
-find_package(PythonInterp 2.7 REQUIRED)
+find_package(PythonInterp 3.5 REQUIRED)
 if(PYTHONINTERP_FOUND)
     message(STATUS "Python has been found, version: ${PYTHON_VERSION_STRING}")
-else()
-    message(FATAL_ERROR "Unable to find Python!")
-endif()
-
-###########################
-#
-# SFML search (${SFML_ROOT} and $ENV{SFML_ROOT} can be setted)
-#
-###########################
-find_package(SFML 2 COMPONENTS system audio REQUIRED)
-if(SFML_FOUND)
-    message(STATUS "SFML has been found, libs: ${SFML_LIBRARIES}")
-else()
-    message(FATAL_ERROR "Unable to find SFML!")
-endif()
-
-###########################
-#
-# PNG search
-#
-###########################
-if(WIN32)
-    set(CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH}
-        ${PNG_INCLUDE_DIR}
-        $ENV{PNG_INCLUDE_DIR})
-    set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH}
-        ${PNG_LIBRARY_DIR}
-        $ENV{PNG_LIBRARY_DIR})
-    set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH}
-        ${ZLIB_ROOT}
-        $ENV{ZLIB_ROOT})
-endif()
-find_package(PNG REQUIRED)
-if(SFML_FOUND)
-    message(STATUS "PNG has been found, version: ${PNG_VERSION_STRING}, include: ${PNG_INCLUDE_DIRS}, libs: ${PNG_LIBRARIES}")
-else()
-    message(FATAL_ERROR "Unable to find PNGLIB!")
 endif()
 
 ######################
@@ -137,10 +89,17 @@ if(BUILD_TESTS)
 
     configure_file(tests/CMakeLists.txt
                    googletest-download/CMakeLists.txt)
-    execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-    execute_process(COMMAND ${CMAKE_COMMAND} --build .
-      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+    if(CMAKE_BUILD_TYPE MATCHES DEBUG) # Build gtest in release if so.
+        execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+        execute_process(COMMAND ${CMAKE_COMMAND} --build .
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+    else()
+        execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" -DCMAKE_BUILD_TYPE=Release .
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+        execute_process(COMMAND ${CMAKE_COMMAND} --build . --config Release
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
+    endif()
 
     # Prevent GoogleTest from overriding our compiler/linker options
     # when building with Visual Studio
@@ -153,11 +112,7 @@ if(BUILD_TESTS)
                      ${CMAKE_BINARY_DIR}/googletest-build
                      EXCLUDE_FROM_ALL)
 
-    if(MSVC)
-        add_definitions(/D _BUILD_TESTS)
-    else()
-        add_definitions(-D _BUILD_TESTS)
-    endif()
+    add_definitions(-D _BUILD_TESTS)
 endif()
 
 ###
@@ -192,7 +147,7 @@ message(STATUS ${CLIENT_VERSION})
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(BITS_VERSION 64)
-else(CMAKE_SIZEOF_VOID_P EQUAL 4)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
     set(BITS_VERSION 32)
 else()
     message(FATAL_ERROR "Unsupported compiler bits version!")
@@ -207,7 +162,7 @@ message(STATUS ${SYSTEM_INFO})
 # Version.cpp generation
 execute_process(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/version.py
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/${UTILS_DIR}/version.py
     ${CLIENT_VERSION} ${SYSTEM_INFO}
     RESULT_VARIABLE VERSION_GENERATION_RETVAL
 )
@@ -225,8 +180,9 @@ endif()
 ### Some global compiler flags & other stuff
 ###
 
+set(CMAKE_CXX_STANDARD 11)
 if(CMAKE_COMPILER_IS_GNUCXX)
-    set(CMAKE_CXX_FLAGS "-std=c++11 -Wold-style-cast ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "-Werror -Wold-style-cast -Wreturn-type ${CMAKE_CXX_FLAGS}")
 endif()
 
 #SET(CMAKE_EXE_LINKER_FLAGS "/DEBUG")
@@ -262,36 +218,29 @@ file(GLOB_RECURSE FORMS "${SOURCE_DIR}*.ui")
 # Metadata & source code generation
 add_custom_command(
     OUTPUT metadata.json
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/metadata_generator.py ${CMAKE_CURRENT_SOURCE_DIR} metadata.json
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/${UTILS_DIR}/metadata_generator.py ${CMAKE_CURRENT_SOURCE_DIR} metadata.json
     DEPENDS ${HEADERS})
 add_custom_command(
-    OUTPUT AutogenMetadata.cpp
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/autogen.py
+    OUTPUT AutogenMetadata.cpp AutogenSerialization.cpp
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/${UTILS_DIR}/autogen.py
     DEPENDS metadata.json
 )
 add_custom_target(Metadata ALL DEPENDS AutogenMetadata.cpp)
 
 list(APPEND SOURCES "${CMAKE_BINARY_DIR}/AutogenMetadata.cpp")
+list(APPEND SOURCES "${CMAKE_BINARY_DIR}/AutogenSerialization.cpp")
 list(APPEND SOURCES "${CMAKE_BINARY_DIR}/Version.cpp")
 
 qt5_wrap_ui(FORMS_HEADERS ${FORMS})
 
 add_executable(KVEngine WIN32 ${SOURCES} ${HEADERS} ${FORMS_HEADERS} ${TESTS})
 
-# Add PNG lib
-add_definitions(${PNG_DEFINITIONS})
-include_directories(${PNG_INCLUDE_DIRS})
-target_link_libraries(KVEngine ${PNG_LIBRARIES})
-
-# Add SFML lib
-include_directories(${SFML_INCLUDE_DIR})
-target_link_libraries(KVEngine ${SFML_LIBRARIES})
-
 # Add Qt5 lib
 qt5_use_modules(KVEngine Core)
 qt5_use_modules(KVEngine Network)
 qt5_use_modules(KVEngine Widgets)
 qt5_use_modules(KVEngine OpenGL)
+qt5_use_modules(KVEngine Multimedia)
 
 # Add GTEST lib
 if(BUILD_TESTS)
@@ -312,6 +261,8 @@ endif()
 # Add opengl lib
 if(WIN32)
     target_link_libraries(KVEngine opengl32)
+elseif(APPLE)
+    target_link_libraries(KVEngine /System/Library/Frameworks/OpenGL.framework)
 else()
     target_link_libraries(KVEngine GL)
 endif()
@@ -376,6 +327,8 @@ include_directories(UNPACKER_DIR)
 include_directories("qzip_unpacker")
 
 file(GLOB_RECURSE UNPACKER_SOURCES "${UNPACKER_DIR}*.cpp")
+list(APPEND UNPACKER_SOURCES "${SOURCE_DIR}/FastSerializer.cpp" "${SOURCE_DIR}/FastSerializer.h")
+list(APPEND UNPACKER_SOURCES "${SOURCE_DIR}/KvAbort.cpp" "${SOURCE_DIR}/KvAbort.h")
 
 add_executable(Unpacker ${UNPACKER_SOURCES})
 

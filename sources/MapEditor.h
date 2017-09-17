@@ -13,9 +13,9 @@
 #include <QKeyEvent>
 #include <QVector>
 
-typedef std::map<QString, QByteArray> MapgenVariablesType;
+using MapgenVariablesType = QMap<QString, QByteArray>;
 
-class MapEditor: public QObject
+class MapEditor : public QObject
 {
     Q_OBJECT
 public:
@@ -33,7 +33,7 @@ public:
     struct EditorTile
     {
         EditorEntry turf;
-        std::vector<EditorEntry> items;
+        QVector<EditorEntry> items;
     };
 
     struct Pointer
@@ -88,7 +88,7 @@ public:
 
     void ClearMap();
 
-    std::vector<EditorEntry>& GetEntriesFor(int posx, int posy, int posz);
+    QVector<EditorEntry>& GetEntriesFor(int posx, int posy, int posz);
     EditorEntry& GetTurfFor(int posx, int posy, int posz);
 
     const Pointer& GetPointer() const { return pointer_; }
@@ -98,12 +98,12 @@ public slots:
     void mousePressedEvent(QGraphicsSceneMouseEvent* mouseEvent);
     void keyPressedEvent(QKeyEvent* event);
 private:
-    std::vector<EditorEntry> copypaste_items_;
+    QVector<EditorEntry> copypaste_items_;
 
     void CopyItemsFromCurrentTile();
     void PasteItemsToCurrentTile();
 
-    std::vector<std::vector<EditorTile>> area_buffer_;
+    QVector<QVector<EditorTile>> area_buffer_;
 
     void CopyToAreaBuffer();
     void PasteFromAreaBuffer();
@@ -121,12 +121,12 @@ private:
 
     Pointer pointer_;
 
-    std::map<QString, QVector<QPixmap>> image_holder_;
+    QMap<QString, QVector<QPixmap>> image_holder_;
 
-    std::set<QString> turf_types_;
+    QSet<QString> turf_types_;
 
     QGraphicsScene* scene_;
 
-    typedef std::vector<std::vector<std::vector<EditorTile>>> MapType;
+    using MapType = QVector<QVector<QVector<EditorTile>>>;
     MapType editor_map_;
 };

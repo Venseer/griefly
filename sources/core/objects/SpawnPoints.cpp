@@ -2,7 +2,9 @@
 
 #include "Lobby.h"
 
-SpawnPoint::SpawnPoint(quint32 id) : IOnMapObject(id)
+using namespace kv;
+
+SpawnPoint::SpawnPoint()
 {
     SetSprite("icons/screen1.dmi");
     SetState("x");
@@ -12,7 +14,7 @@ SpawnPoint::SpawnPoint(quint32 id) : IOnMapObject(id)
 
 void SpawnPoint::AfterWorldCreation()
 {
-    IOnMapObject::AfterWorldCreation();
+    MaterialObject::AfterWorldCreation();
 
     SetState("");
 

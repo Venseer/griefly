@@ -3,7 +3,6 @@
 
 #include "core/ObjectFactory.h"
 #include "core/Map.h"
-#include "representation/Text.h"
 
 #include "representation/View2.h"
 #include "representation/SpriteHolder.h"
@@ -20,11 +19,12 @@
 #include <QInputDialog>
 
 #include "AutogenMetadata.h"
-#include "core/StreamWrapper.h"
+
+using namespace kv;
 
 GraphicsScene::GraphicsScene(QWidget *parent) : QGraphicsScene(parent)
 {
-
+    // Nothing
 }
 
 void GraphicsScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
@@ -41,9 +41,9 @@ void GraphicsScene::keyPressEvent(QKeyEvent *event)
     emit keyboardPressed(event);
 }
 
-MapEditorForm::MapEditorForm(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::MapEditorForm)
+MapEditorForm::MapEditorForm(QWidget *parent)
+    : QWidget(parent),
+      ui(new Ui::MapEditorForm)
 {
     ui->setupUi(this);
 
@@ -70,15 +70,15 @@ MapEditorForm::MapEditorForm(QWidget *parent) :
     qDebug() << "Start generate images for creators";
     for (auto it = (*GetItemsCreators()).begin(); it != (*GetItemsCreators()).end(); ++it)
     {
-        IMainObject* loc = it->second(0);
-        IOnMapObject* bloc = CastTo<IOnMapObject>(loc);
+        kv::Object* loc = it->second();
+        kv::MaterialObject* bloc = CastTo<kv::MaterialObject>(loc);
         if (!bloc)
         {
             qDebug() << it->first;
             continue;
         }
         bool is_turf = false;
-        if (CastTo<ITurf>(loc))
+        if (CastTo<Turf>(loc))
         {
             is_turf = true;
         }
@@ -112,8 +112,8 @@ MapEditorForm::MapEditorForm(QWidget *parent) :
             int image_state_h_ = current_frame_pos / view.GetBaseFrameset().GetSprite()->FrameW();
             int image_state_w_ = current_frame_pos % view.GetBaseFrameset().GetSprite()->FrameW();
 
-            QImage img = view.GetBaseFrameset().GetSprite()->GetSDLSprite()->frames
-                    [image_state_w_ * view.GetBaseFrameset().GetSprite()->FrameH() + image_state_h_];
+            QImage img = view.GetBaseFrameset().GetSprite()->GetFrames()
+                [image_state_w_ * view.GetBaseFrameset().GetSprite()->FrameH() + image_state_h_];
 
             images.push_back(QPixmap::fromImage(img));
         }
@@ -125,7 +125,7 @@ MapEditorForm::MapEditorForm(QWidget *parent) :
         }
 
         QListWidgetItem* new_item
-                = new QListWidgetItem(QIcon(images[0]), bloc->T_ITEM());
+            = new QListWidgetItem(QIcon(images[0]), bloc->GetType());
 
         if (!is_turf)
         {
@@ -349,7 +349,7 @@ void MapEditorForm::on_listWidgetVariables_itemSelectionChanged()
         QString parsed_value("PARSING_ERROR");
         if (deserializer.IsNextType(FastSerializer::STRING_TYPE))
         {
-            WrapReadMessage(deserializer, parsed_value);
+            deserializer >> parsed_value;
         }
 
         ui->lineEditAsString->setText(parsed_value);
@@ -362,7 +362,7 @@ void MapEditorForm::on_listWidgetVariables_itemSelectionChanged()
         if (deserializer.IsNextType(FastSerializer::INT32_TYPE))
         {
             int value;
-            WrapReadMessage(deserializer, value);
+            deserializer >> value;
             parsed_value = QString::number(value);
         }
 
@@ -375,7 +375,7 @@ void MapEditorForm::on_listWidgetVariables_itemSelectionChanged()
         if (deserializer.IsNextType(FastSerializer::BOOL_TYPE))
         {
             bool value;
-            WrapReadMessage(deserializer, value);
+            deserializer >> value;
             parsed_value = value ? "1" : "0";
         }
 
@@ -423,7 +423,7 @@ void MapEditorForm::on_lineEditAsString_returnPressed()
 
     FastSerializer ss(1);
     QString loc = ui->lineEditAsString->text();
-    WrapWriteMessage(ss, loc);
+    ss << loc;
 
     ee->variables[current_variable] = QByteArray(ss.GetData(), ss.GetIndex());
 
@@ -456,7 +456,7 @@ void MapEditorForm::on_lineEditAsInt_returnPressed()
         return;
     }
 
-    WrapWriteMessage(ss, value);
+    ss << value;
 
     ee->variables[current_variable] = QByteArray(ss.GetData(), ss.GetIndex());
 
@@ -491,7 +491,7 @@ void MapEditorForm::on_lineEditAsBool_returnPressed()
         return;
     }
 
-    WrapWriteMessage(ss, value);
+    ss << value;
 
     ee->variables[current_variable] = QByteArray(ss.GetData(), ss.GetIndex());
 

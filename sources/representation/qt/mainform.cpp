@@ -1,7 +1,7 @@
 #include "mainform.h"
 #include "ui_mainform.h"
 
-#include <iostream>
+#include <QMap>
 
 #include "core/Map.h"
 #include "Params.h"
@@ -12,13 +12,12 @@
 
 #include "representation/Screen.h"
 #include "representation/Metadata.h"
+#include "representation/Representation.h"
 
 #include "qtopengl.h"
 
-#include "representation/Chat.h"
 #include "net/Network2.h"
 #include "net/NetworkMessagesTypes.h"
-#include "representation/Text.h"
 
 #include <QDebug>
 #include <QString>
@@ -33,35 +32,18 @@
 MainForm::MainForm(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::MainForm),
-    fps_cap_(-1)
+    fps_cap_(-1),
+    current_fps_(0),
+    represent_max_ms_(0)
 {
     ui->setupUi(this);
 
-    ui->textBrowser->setAcceptRichText(false);
-    ui->textBrowser->setContextMenuPolicy(Qt::NoContextMenu);
-    ui->textBrowser->setOpenLinks(false);
-    ui->textBrowser->setReadOnly(true);
-    ui->textBrowser->setUndoRedoEnabled(false);
-
-    {
-        QList<int> sizes;
-        sizes.push_back(512);
-        sizes.push_back(256);
-        ui->splitter->setSizes(sizes);
-    }
-    {
-        QList<int> sizes;
-        sizes.push_back(100);
-        sizes.push_back(256);
-        ui->splitterRight->setSizes(sizes);
-    }
-
+    left_column_ = 512;
+    right_column_ = 256;
 
     setWindowTitle("Griefly " + QString(GetGameVersion()));
 
-    left_column = ui->leftColumn->width();
-    right_column = ui->rightColumn->width();
-
+    // Without GL widget looks weird
     ui->widget->hide();
 
     connect(&Network2::GetInstance(), &Network2::connectionSuccess,
@@ -79,7 +61,7 @@ MainForm::MainForm(QWidget *parent) :
     connect(ui->widget, &QtOpenGL::f2Pressed,
             this, &MainForm::oocPrefixToLineEdit);
 
-    connect(ui->lineEdit, &GamingLineEdit::keyToPass, ui->widget, &QtOpenGL::handlePassedKey);
+    connect(ui->command_line_edit, &GamingLineEdit::keyToPass, ui->widget, &QtOpenGL::handlePassedKey);
 
     QTimer::singleShot(0, Qt::PreciseTimer, this, SLOT(connectToHost()));
 
@@ -88,7 +70,7 @@ MainForm::MainForm(QWidget *parent) :
 
 void MainForm::setFocusOnLineEdit()
 {
-    ui->lineEdit->setFocus();
+    ui->command_line_edit->setFocus();
 }
 
 MainForm::~MainForm()
@@ -96,24 +78,59 @@ MainForm::~MainForm()
     delete ui;
 }
 
-void MainForm::addSystemText(QString key, QString text)
+void MainForm::addSytemTextToTab(const QString& tab, const QString& text)
 {
-    texts_[key] = text;
-    if (text == "")
+    if (texts_.find(tab) == texts_.end())
     {
-        texts_.remove(key);
+        QWidget* new_tab = new QWidget;
+        auto new_grid_layout = new QGridLayout(new_tab);
+        auto new_text_edit = new QTextEdit(new_tab);
+        new_text_edit->setUndoRedoEnabled(false);
+        new_text_edit->setReadOnly(true);
+
+        new_grid_layout->addWidget(new_text_edit, 0, 0, 1, 1);
+
+        texts_.insert(tab, new_text_edit);
+
+        const int index = ui->texts_tabs->count();
+        ui->texts_tabs->insertTab(index, new_tab, tab);
+    }
+
+    QTextEdit* text_edit = texts_[tab];
+    text_edit->insertHtml(QString("%1<br>").arg(text));
+}
+
+void MainForm::clearSystemTexts()
+{
+    for (const auto& text_edit : qAsConst(texts_))
+    {
+        text_edit->clear();
     }
 }
 
-void MainForm::resizeEvent(QResizeEvent* event) {
-    ui->lineEdit->resize(width(), ui->lineEdit->height());
-    ui->lineEdit->move(ui->lineEdit->x(), height() - ui->lineEdit->height());
-    ui->splitter->resize(width(), ui->lineEdit->y());
+void MainForm::removeEmptyTabs()
+{
+    QVector<QString> to_remove;
+    for (const auto& text_edit : qAsConst(texts_))
+    {
+        if (text_edit->document()->isEmpty())
+        {
+            delete text_edit->parent();
+            to_remove.append(texts_.key(text_edit));
+        }
+    }
+    for (const auto& removed : qAsConst(to_remove))
+    {
+        texts_.remove(removed);
+    }
+}
 
-    QList<int> sizes;
-    sizes.push_back((width() * left_column) / (left_column + right_column));
-    sizes.push_back((width() * right_column) / (left_column + right_column));
-    ui->splitter->setSizes(sizes);
+void MainForm::resizeEvent(QResizeEvent*)
+{
+    const int left = (width() * left_column_) / (left_column_ + right_column_);
+    const int right = (width() * right_column_) / (left_column_ + right_column_);
+    ui->splitter->setSizes({left, right});
+
     on_splitter_splitterMoved(0, 0);
 }
 
@@ -132,54 +149,37 @@ void MainForm::startGameLoop(int id, QString map)
         fps_cap_ = GetParamsHolder().GetParam<int>("-max_fps");
     }
 
-    SetRepresentation(new Representation);
-    connect(ui->widget, &QtOpenGL::focusLost,
-    []()
+    representation_ = new Representation;
+    ui->widget->SetRepresentation(representation_);
+    connect(ui->widget, &QtOpenGL::focusLost, this,
+    [this]()
     {
-        GetRepresentation().ResetKeysState();
+        representation_->ResetKeysState();
     });
 
-    Game* game = new Game;
+    Game* game = new Game(representation_);
 
     connect(game, &Game::insertHtmlIntoChat,
             this, &MainForm::insertHtmlIntoChat);
-    connect(game, &Game::addSystemText,
-            this, &MainForm::addSystemText);
-    connect(game, &Game::playMusic,
-            this, &MainForm::playMusic);
+    connect(representation_, &Representation::clearSystemTexts,
+            this, &MainForm::clearSystemTexts);
+    connect(representation_, &Representation::systemText,
+            this, &MainForm::addSytemTextToTab);
+    connect(representation_, &Representation::removeEmptyTabs,
+            this, &MainForm::removeEmptyTabs);
 
     connect(game, &Game::sendMap,
             &Network2::GetInstance(), &Network2::sendMap);
+    connect(representation_, &Representation::chatMessage, this, &MainForm::insertHtmlIntoChat);
 
     game->InitWorld(id, map);
 
     connect(this, &MainForm::closing, game, &Game::endProcess);
     connect(this, &MainForm::generateUnsync, game, &Game::generateUnsync);
 
-
-    QTimer text_updater;
-    text_updater.setInterval(500);
-    connect(&text_updater, &QTimer::timeout,
-    [&]()
-    {
-        ui->mainTabTextBrowser->clear();
-        ui->performanceTextBrowser->clear();
-        for (auto it = texts_.begin(); it != texts_.end(); ++it)
-        {
-            // TODO: constants?
-            if (it.key().startsWith("{Perf}"))
-            {
-                ui->performanceTextBrowser->insertHtml(*it + "<br>");
-                continue;
-            }
-            ui->mainTabTextBrowser->insertHtml(*it + "<br>");
-        }
-    });
-
-    text_updater.start();
-
     QElapsedTimer fps_timer;
     fps_timer.start();
+
     int fps_counter = 0;
 
     QElapsedTimer process_performance;
@@ -197,7 +197,7 @@ void MainForm::startGameLoop(int id, QString map)
     while (true)
     {
         process_performance.start();
-        GetRepresentation().HandleInput();
+        representation_->HandleInput();
         GetGLWidget()->updateGL();
         ++fps_counter;
         qint64 process_time = process_performance.nsecsElapsed();
@@ -217,15 +217,12 @@ void MainForm::startGameLoop(int id, QString map)
 
         if (fps_timer.elapsed() > 1000)
         {
-            addSystemText("FPS", "FPS: " + QString::number(fps_counter));
-            addSystemText(
-                "{Perf}Represent",
-                QString("Represent max: %1 ms").arg(max_process_time / 1e6));
-            qint64 mutex_ns = GetRepresentation().GetPerformance().mutex_ns;
-            addSystemText(
-                "{Perf}RepresentMutex",
-                QString("Represent mutex lock max: %1 ms").arg(mutex_ns / 1e6));
-            GetRepresentation().ResetPerformance();
+            current_fps_ = fps_counter;
+            represent_max_ms_ = max_process_time / 1e6;
+
+            AddSystemTexts();
+
+            representation_->ResetPerformance();
             max_process_time = 0;
             fps_timer.restart();
             fps_counter = 0;
@@ -251,9 +248,9 @@ void MainForm::connectionFailed(QString reason)
 
 void MainForm::insertHtmlIntoChat(QString html)
 {
-    QTextCursor cursor = ui->textBrowser->textCursor();
+    QTextCursor cursor = ui->chat_text_edit->textCursor();
     cursor.movePosition(QTextCursor::End);
-    ui->textBrowser->setTextCursor(cursor);
+    ui->chat_text_edit->setTextCursor(cursor);
 
     cursor.insertHtml(html);
     cursor.insertBlock();
@@ -261,20 +258,20 @@ void MainForm::insertHtmlIntoChat(QString html)
     const int MIN_TEXT_BLOCKS = 3;
     const int MAX_SIZE_OF_DOCUMENT = 1500.0;
 
-    while (   (ui->textBrowser->document()->blockCount() > MIN_TEXT_BLOCKS)
-           && (ui->textBrowser->document()->size().height() > MAX_SIZE_OF_DOCUMENT))
+    while (   (ui->chat_text_edit->document()->blockCount() > MIN_TEXT_BLOCKS)
+           && (ui->chat_text_edit->document()->size().height() > MAX_SIZE_OF_DOCUMENT))
     {
         RemoveFirstBlockFromTextEditor();
     }
 
-    cursor = ui->textBrowser->textCursor();
+    cursor = ui->chat_text_edit->textCursor();
     cursor.movePosition(QTextCursor::End);
-    ui->textBrowser->setTextCursor(cursor);
+    ui->chat_text_edit->setTextCursor(cursor);
 }
 
 void MainForm::RemoveFirstBlockFromTextEditor()
 {
-    QTextCursor cursor = ui->textBrowser->textCursor();
+    QTextCursor cursor = ui->chat_text_edit->textCursor();
     cursor.movePosition(QTextCursor::Start);
     cursor.select(QTextCursor::BlockUnderCursor);
     cursor.removeSelectedText();
@@ -286,22 +283,9 @@ void MainForm::RemoveFirstBlockFromTextEditor()
     }
 }
 
-void MainForm::playMusic(QString name, float volume)
-{
-    qDebug() << name << " " << volume;
-    if (name != "")
-    {
-        GetSoundPlayer().PlayMusic(name, volume);
-    }
-    else
-    {
-        GetSoundPlayer().StopMusic();
-    }
-}
-
 void MainForm::oocPrefixToLineEdit()
 {
-    ui->lineEdit->setText("OOC ");
+    ui->command_line_edit->setText("OOC ");
 }
 
 void MainForm::uploadStarted()
@@ -374,6 +358,17 @@ void MainForm::connectToHost()
     Network2::GetInstance().TryConnect(adrs, port, login, password);
 }
 
+void MainForm::AddSystemTexts()
+{
+    ui->client_text_edit->clear();
+
+    ui->client_text_edit->insertHtml(QString("FPS: %1<br>").arg(current_fps_));
+    ui->client_text_edit->insertHtml(QString("Represent max: %1 ms<br>").arg(represent_max_ms_));
+
+    const qint64 mutex_ns = representation_->GetPerformance().mutex_ns;
+    ui->client_text_edit->insertHtml(QString("Represent mutex lock max: %1 ms").arg(mutex_ns / 1e6));
+}
+
 bool IsOOCMessage(const QString& text)
 {
     if (    text.length() >= 3
@@ -386,10 +381,10 @@ bool IsOOCMessage(const QString& text)
     return false;
 }
 
-void MainForm::on_lineEdit_returnPressed()
+void MainForm::on_command_line_edit_returnPressed()
 {
-    QString text = ui->lineEdit->text();
-    ui->lineEdit->clear();
+    QString text = ui->command_line_edit->text();
+    ui->command_line_edit->clear();
     if (text.length() == 0)
     {
         return;
@@ -404,7 +399,7 @@ void MainForm::on_lineEdit_returnPressed()
     if (text == "/restart_round")
     {
         qDebug() << "Restart round message will be sended to the server...";
-        Message2 message;
+        Message message;
         message.type = MessageType::RESTART_ROUND;
         Network2::GetInstance().SendMsg(message);
         return;
@@ -426,7 +421,7 @@ void MainForm::on_lineEdit_returnPressed()
         qDebug() <<
             QString("%1 nexttick messages will be sended to the server...")
                 .arg(count);
-        Message2 message;
+        Message message;
         message.type = MessageType::NEXT_TICK;
         for (int i = 0; i < count; ++i)
         {
@@ -435,7 +430,7 @@ void MainForm::on_lineEdit_returnPressed()
         return;
     }
 
-    Message2 message;
+    Message message;
     message.type = MessageType::MESSAGE;
     QJsonObject object;
     if (IsOOCMessage(text))
@@ -460,22 +455,22 @@ void MainForm::on_lineEdit_returnPressed()
     Network2::GetInstance().SendMsg(message);
 }
 
-void MainForm::on_splitter_splitterMoved(int pos, int index)
+void MainForm::on_splitter_splitterMoved(int, int)
 {
-    left_column = ui->leftColumn->width();
-    right_column = ui->rightColumn->width();
+    left_column_ = ui->left_column->width();
+    right_column_ = ui->right_column->width();
 
-    int min_size = std::min(ui->leftColumn->width(), ui->leftColumn->height());
+    int min_size = qMin(ui->left_column->width(), ui->left_column->height());
     ui->widget->resize(min_size, min_size);
 
-    ui->splitterRight->resize(ui->rightColumn->width(), ui->rightColumn->height());
+    ui->splitter_right->resize(ui->right_column->width(), ui->right_column->height());
 
     if (IsScreenValid())
     {
         GetScreen().PerformSizeUpdate();
     }
 
-    int x_pos = (ui->leftColumn->width() - min_size) / 2;
-    int y_pos = (ui->leftColumn->height() - min_size) / 2;
+    int x_pos = (ui->left_column->width() - min_size) / 2;
+    int y_pos = (ui->left_column->height() - min_size) / 2;
     ui->widget->move(x_pos, y_pos);
 }

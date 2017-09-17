@@ -1,14 +1,14 @@
 #pragma once
 
-#include "Human.h"
+#include "mobs/Human.h"
 
 // TODO: classes (?)
 
 namespace professions
 {
-    void ToSecurityOfficer(IdPtr<Human> human);
-    void ToDoctor(IdPtr<Human> human);
-    void ToAssistant(IdPtr<Human> human);
-    void ToClown(IdPtr<Human> human);
-    void ToBarman(IdPtr<Human> human);
+    void ToSecurityOfficer(IdPtr<kv::Human> human);
+    void ToDoctor(IdPtr<kv::Human> human);
+    void ToAssistant(IdPtr<kv::Human> human);
+    void ToClown(IdPtr<kv::Human> human);
+    void ToBarman(IdPtr<kv::Human> human);
 }

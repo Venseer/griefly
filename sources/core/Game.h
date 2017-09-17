@@ -2,80 +2,87 @@
 
 #include <list>
 
-#include "objects/Mob.h"
+#include "objects/mobs/Mob.h"
 #include "objects/test/UnsyncGenerator.h"
+#include "objects/GlobalObjectsHolder.h"
 
-#include "SyncRandom.h"
+#include "SynchronizedRandom.h"
 #include "Names.h"
+#include "WorldLoaderSaver.h"
+#include "ChatFrameInfo.h"
 
 #include <QApplication>
 #include <QKeyEvent>
 #include <QString>
 #include <QObject>
 #include <QThread>
+#include <QElapsedTimer>
 
 #include "Interfaces.h"
 
-class TextPainter;
-
-class Game : public QObject, public IGame
+class Game : public QObject, public GameInterface
 {
     Q_OBJECT
 public:
     void WaitForExit();
     void InitWorld(int id, QString map_name);
 
-    Game();
+    Game(Representation* representation);
     ~Game();
 
     virtual void MakeTiles(int size_x, int size_y, int size_z) override;
 
-    virtual void PlayMusic(const QString& name, float volume) override;
-    virtual void AddSound(const QString& name) override;
+    virtual void PlayMusic(const QString& name, int volume, quint32 mob) override;
+    virtual void AddSound(const QString& name, kv::Position position) override;
 
-    virtual IMapMaster& GetMap() override;
-    virtual const IMapMaster& GetMap() const override;
-    virtual IObjectFactory& GetFactory() override;
-    virtual IChat& GetChat() override;
-    virtual TextPainter& GetTexts() override;
-    virtual SyncRandom& GetRandom() override;
+    virtual AtmosInterface& GetAtmosphere() override;
+    virtual MapInterface& GetMap() override;
+    virtual const MapInterface& GetMap() const override;
+    virtual ObjectFactoryInterface& GetFactory() override;
     virtual Names& GetNames() override;
+    virtual kv::ChatFrameInfo& GetChatFrameInfo() override;
 
-    virtual void SetUnsyncGenerator(quint32 generator) override;
-    virtual void ChangeMob(IdPtr<IMob> new_mob) override;
-    virtual IdPtr<IMob> GetMob() override;
+    virtual IdPtr<kv::Mob> GetMob() override;
     virtual void SetMob(quint32 new_mob) override;
+
+    virtual IdPtr<kv::GlobalObjectsHolder> GetGlobals() const;
+    virtual void SetGlobals(quint32 globals);
+
+    virtual void SetPlayerId(quint32 net_id, quint32 real_id) override;
+    virtual quint32 GetPlayerId(quint32 net_id) const override;
+    virtual quint32 GetNetId(quint32 real_id) const override;
 public slots:
     void process();
     void endProcess();
     void generateUnsync();
 signals:    
     void sendMap(QString url, QByteArray data);
-    void addSystemText(QString key, QString text);
     void insertHtmlIntoChat(QString html);
-    void playMusic(QString name, float volume);
 private:
-    IdPtr<UnsyncGenerator> GetUnsyncGenerator();
     void GenerateFrame();
+    void AppendSystemTexts();
+    void AppendSoundsToFrame(const VisiblePoints& points);
+    void AppendChatMessages();
 
-    void UpdateVisible();
     void ProcessInputMessages();
     void InitGlobalObjects();
     void Process();
+    void ProcessHearers();
 
     void AddLastMessages(QByteArray* data);
-    void AddMessageToMessageLog(Message2 message);
+    void AddMessageToMessageLog(Message message);
 
     void AddBuildInfo(QByteArray* data);
 
-    FastSerializer serializer_;
+    void PostOoc(const QString& who, const QString& text);
 
-    std::vector<Message2> messages_log_;
+    kv::FastSerializer serializer_;
+
+    std::vector<Message> messages_log_;
     int log_pos_;
 
     bool is_end_process_;
 
-    int lps_;
     float cpu_load_;
 
     std::vector<float> cpu_loads_;
@@ -83,7 +90,7 @@ private:
 
     QString last_touch_;
 
-    std::vector<Message2> messages_to_process_;
+    std::vector<Message> messages_to_process_;
     void ProcessBroadcastedMessages();
     void CheckMessagesOrderCorrectness();
     //bool hash_
@@ -110,14 +117,19 @@ private:
 
     QThread thread_;
 
-    IMapMaster* map_;
-    IObjectFactory* factory_;
-    IChat* chat_;
-    TextPainter* texts_;
+    AtmosInterface* atmos_;
+    ObjectFactoryInterface* factory_;
 
-    SyncRandom* sync_random_;
     Names* names_;
+    kv::WorldLoaderSaver* world_loader_saver_;
 
-    IdPtr<UnsyncGenerator> unsync_generator_;
-    IdPtr<IMob> current_mob_;
+    kv::ChatFrameInfo chat_frame_info_;
+
+    IdPtr<kv::GlobalObjectsHolder> global_objects_;
+
+    IdPtr<kv::Mob> current_mob_;
+    QVector<QPair<kv::Position, QString>> sounds_for_frame_;
+    VisiblePoints points_;
+
+    Representation* representation_;
 };

@@ -4,16 +4,20 @@
 
 #include "core/ObjectFactory.h"
 
-#include "core/objects/MainObject.h"
+#include "core/objects/Object.h"
 #include "core/objects/Tile.h"
-#include "core/objects/OnMapObject.h"
-#include "core/objects/Turf.h"
-#include "core/objects/Mob.h"
-#include "core/objects/test/TestMainObject.h"
+#include "core/objects/MaterialObject.h"
+#include "core/objects/turfs/Turf.h"
+#include "core/objects/mobs/Mob.h"
+#include "core/objects/test/TestObject.h"
 #include "core/objects/test/UnsyncGenerator.h"
+
+#include "core/Game.h"
 
 using ::testing::ReturnRef;
 using ::testing::Return;
+
+using namespace kv;
 
 TEST(ObjectFactory, Constructor)
 {
@@ -34,75 +38,81 @@ TEST(ObjectFactoryDeathTest, CreateImplFailAdd)
 
     ASSERT_DEATH(
     {
-        quint32 id = factory.CreateImpl(IOnMapBase::T_ITEM_S());
-        factory.CreateImpl(IOnMapBase::T_ITEM_S(), id);
+        quint32 id = factory.CreateImpl(MapObject::GetTypeStatic());
+        factory.CreateImpl(MapObject::GetTypeStatic(), id);
     }, "AddItem failed");
+}
+
+TEST(ObjectFactoryDeathTest, CreateImplFailFindType)
+{
+    MockIGame game;
+    ObjectFactory factory(&game);
+
+    ASSERT_DEATH(
+    {
+        factory.CreateImpl("This type does not exist.");
+    }, "Unable to find creator for type");
 }
 
 TEST(ObjectFactory, CreateImpl)
 {
     MockIGame game;
-    MockIMapMaster map;
     MockIAtmosphere atmos;
     ObjectFactory factory(&game);
     {
-        quint32 id = factory.CreateImpl(IMainObject::T_ITEM_S());
+        quint32 id = factory.CreateImpl(kv::Object::GetTypeStatic());
         EXPECT_EQ(id, 1);
 
         ASSERT_GT(factory.GetIdTable().size(), 2);
-        IMainObject* object = factory.GetIdTable()[1].object;
-        EXPECT_EQ(object->T_ITEM(), IMainObject::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[1].object;
+        EXPECT_EQ(object->GetType(), kv::Object::GetTypeStatic());
         EXPECT_EQ(object->GetId(), 1);
     }
     {
-        quint32 id = factory.CreateImpl(UnsyncGenerator::T_ITEM_S());
+        quint32 id = factory.CreateImpl(UnsyncGenerator::GetTypeStatic());
         EXPECT_EQ(id, 2);
 
         ASSERT_GT(factory.GetIdTable().size(), 3);
-        IMainObject* object = factory.GetIdTable()[2].object;
-        EXPECT_EQ(object->T_ITEM(), UnsyncGenerator::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[2].object;
+        EXPECT_EQ(object->GetType(), UnsyncGenerator::GetTypeStatic());
         EXPECT_EQ(object->GetId(), 2);
     }
     {
-        quint32 id = factory.CreateImpl(CubeTile::T_ITEM_S());
+        quint32 id = factory.CreateImpl(CubeTile::GetTypeStatic());
         EXPECT_EQ(id, 3);
 
         ASSERT_GT(factory.GetIdTable().size(), 4);
-        IMainObject* object = factory.GetIdTable()[3].object;
-        ASSERT_EQ(object->T_ITEM(), CubeTile::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[3].object;
+        ASSERT_EQ(object->GetType(), CubeTile::GetTypeStatic());
         EXPECT_EQ(object->GetId(), 3);
         CubeTile* tile = static_cast<CubeTile*>(object);
-        tile->SetPos(0, 0);
+        tile->SetPos({0, 0, 0});
 
-        EXPECT_CALL(game, GetMap())
-            .WillOnce(ReturnRef(map));
-        EXPECT_CALL(map, GetAtmosphere())
+        EXPECT_CALL(game, GetAtmosphere())
             .WillOnce(ReturnRef(atmos));
         EXPECT_CALL(atmos, SetFlags(0, 0, 0, '\0'));
-        quint32 id2 = factory.CreateImpl(IOnMapObject::T_ITEM_S(), id);
+        quint32 id2 = factory.CreateImpl(MaterialObject::GetTypeStatic(), id);
         EXPECT_EQ(id2, 4);
         {
             ASSERT_GT(factory.GetIdTable().size(), 5);
-            IMainObject* object = factory.GetIdTable()[4].object;
-            ASSERT_EQ(object->T_ITEM(), IOnMapObject::T_ITEM_S());
+            kv::Object* object = factory.GetIdTable()[4].object;
+            ASSERT_EQ(object->GetType(), MaterialObject::GetTypeStatic());
             EXPECT_EQ(object->GetId(), 4);
-            IOnMapObject* on_map_object = static_cast<IOnMapObject*>(object);
+            MaterialObject* on_map_object = static_cast<MaterialObject*>(object);
             EXPECT_EQ(on_map_object->GetOwner().Id(), id);
         }
 
-        EXPECT_CALL(game, GetMap())
-            .WillOnce(ReturnRef(map));
-        EXPECT_CALL(map, GetAtmosphere())
+        EXPECT_CALL(game, GetAtmosphere())
             .WillOnce(ReturnRef(atmos));
         EXPECT_CALL(atmos, SetFlags(0, 0, 0, '\0'));
-        quint32 id3 = factory.CreateImpl(ITurf::T_ITEM_S(), id);
+        quint32 id3 = factory.CreateImpl(Turf::GetTypeStatic(), id);
         EXPECT_EQ(id3, 5);
         {
             ASSERT_GT(factory.GetIdTable().size(), 6);
-            IMainObject* object = factory.GetIdTable()[5].object;
-            ASSERT_EQ(object->T_ITEM(), ITurf::T_ITEM_S());
+            kv::Object* object = factory.GetIdTable()[5].object;
+            ASSERT_EQ(object->GetType(), Turf::GetTypeStatic());
             EXPECT_EQ(object->GetId(), 5);
-            ITurf* turf = static_cast<ITurf*>(object);
+            Turf* turf = static_cast<Turf*>(object);
             EXPECT_EQ(turf->GetOwner().Id(), id);
         }
     }
@@ -115,7 +125,7 @@ TEST(ObjectFactory, CreateImplResizeTable)
 
     for (int i = 1; i < 1000; ++i)
     {
-        quint32 id = factory.CreateImpl(IMainObject::T_ITEM_S());
+        quint32 id = factory.CreateImpl(kv::Object::GetTypeStatic());
         EXPECT_EQ(id, i);
     }
 }
@@ -128,28 +138,28 @@ TEST(ObjectFactory, AfterWorldCreation)
     {
         factory.BeginWorldCreation();
 
-        quint32 id = factory.CreateImpl(TestMainObject::T_ITEM_S());
+        quint32 id = factory.CreateImpl(TestObject::GetTypeStatic());
         ASSERT_EQ(id, 1);
 
         ASSERT_GT(factory.GetIdTable().size(), 2);
-        IMainObject* object = factory.GetIdTable()[1].object;
-        ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[1].object;
+        ASSERT_EQ(object->GetType(), TestObject::GetTypeStatic());
 
-        TestMainObject* test_object = static_cast<TestMainObject*>(object);
+        TestObject* test_object = static_cast<TestObject*>(object);
         ASSERT_EQ(test_object->after_world_creation_, 0);
 
         factory.FinishWorldCreation();
         ASSERT_EQ(test_object->after_world_creation_, 1);
     }
     {
-        quint32 id = factory.CreateImpl(TestMainObject::T_ITEM_S());
+        quint32 id = factory.CreateImpl(TestObject::GetTypeStatic());
         ASSERT_EQ(id, 2);
 
         ASSERT_GT(factory.GetIdTable().size(), 3);
-        IMainObject* object = factory.GetIdTable()[2].object;
-        ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[2].object;
+        ASSERT_EQ(object->GetType(), TestObject::GetTypeStatic());
 
-        TestMainObject* test_object = static_cast<TestMainObject*>(object);
+        TestObject* test_object = static_cast<TestObject*>(object);
         ASSERT_EQ(test_object->after_world_creation_, 1);
     }
 }
@@ -161,16 +171,20 @@ TEST(ObjectFactory, Process)
     factory.FinishWorldCreation();
 
     {
-        quint32 id = factory.CreateImpl(TestMainObject::T_ITEM_S());
+        quint32 id = factory.CreateImpl(TestObject::GetTypeStatic());
         ASSERT_EQ(id, 1);
         ASSERT_GT(factory.GetIdTable().size(), 2);
-        IMainObject* object = factory.GetIdTable()[1].object;
-        ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[1].object;
+        ASSERT_EQ(object->GetType(), TestObject::GetTypeStatic());
 
-        TestMainObject* test_object = static_cast<TestMainObject*>(object);
+        TestObject* test_object = static_cast<TestObject*>(object);
         EXPECT_EQ(test_object->process_, 0);
 
-        MAIN_TICK = 1;
+        IdPtr<GlobalObjectsHolder> globals = factory.CreateImpl(GlobalObjectsHolder::GetTypeStatic());
+        globals->game_tick = 1;
+
+        EXPECT_CALL(game, GetGlobals())
+            .WillRepeatedly(Return(globals));
 
         factory.ForeachProcess();
         EXPECT_EQ(test_object->process_, 0);
@@ -190,7 +204,7 @@ TEST(ObjectFactory, Process)
         factory.ForeachProcess();
         EXPECT_EQ(test_object->process_, 2);
 
-        MAIN_TICK = 100;
+        globals->game_tick = 100;
         factory.ForeachProcess();
         EXPECT_EQ(test_object->process_, 3);
 
@@ -212,13 +226,13 @@ TEST(ObjectFactory, Process)
         EXPECT_EQ(test_object->process_, 4);
         factory.GetIdTable()[1].object = object;
 
-        quint32 id2 = factory.CreateImpl(TestMainObject::T_ITEM_S());
-        ASSERT_EQ(id2, 2);
-        ASSERT_GT(factory.GetIdTable().size(), 3);
-        IMainObject* object2 = factory.GetIdTable()[2].object;
-        ASSERT_EQ(object2->T_ITEM(), TestMainObject::T_ITEM_S());
+        quint32 id2 = factory.CreateImpl(TestObject::GetTypeStatic());
+        ASSERT_EQ(id2, 3);
+        ASSERT_GT(factory.GetIdTable().size(), 4);
+        kv::Object* object2 = factory.GetIdTable()[3].object;
+        ASSERT_EQ(object2->GetType(), TestObject::GetTypeStatic());
 
-        TestMainObject* test_object2 = static_cast<TestMainObject*>(object2);
+        TestObject* test_object2 = static_cast<TestObject*>(object2);
         EXPECT_EQ(test_object2->process_, 0);
 
         test_object->SetProcessCallback(
@@ -236,14 +250,14 @@ TEST(ObjectFactory, Process)
         test_object->SetProcessCallback(
         [&factory]()
         {
-            factory.GetIdTable()[2].object = nullptr;
+            factory.GetIdTable()[3].object = nullptr;
         });
         EXPECT_CALL(game, GetFactory())
             .WillOnce(ReturnRef(factory));
         object2->SetFreq(1);
         factory.ForeachProcess();
         EXPECT_EQ(test_object2->process_, 0);
-        factory.GetIdTable()[2].object = object2;
+        factory.GetIdTable()[3].object = object2;
 
         object->SetFreq(0);
         EXPECT_CALL(game, GetFactory())
@@ -266,13 +280,13 @@ TEST(ObjectFactory, DeleteLater)
     factory.FinishWorldCreation();
 
     {
-        quint32 id = factory.CreateImpl(TestMainObject::T_ITEM_S());
+        quint32 id = factory.CreateImpl(TestObject::GetTypeStatic());
         ASSERT_EQ(id, 1);
         ASSERT_GT(factory.GetIdTable().size(), 2);
-        IMainObject* object = factory.GetIdTable()[1].object;
-        ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
+        kv::Object* object = factory.GetIdTable()[1].object;
+        ASSERT_EQ(object->GetType(), TestObject::GetTypeStatic());
 
-        TestMainObject* test_object = static_cast<TestMainObject*>(object);
+        TestObject* test_object = static_cast<TestObject*>(object);
         int counter = 0;
         test_object->SetDestructorCallback(
         [&counter]()
@@ -299,32 +313,6 @@ TEST(ObjectFactory, DeleteLater)
     }
 }
 
-TEST(ObjectFactory, PlayersIds)
-{
-    MockIGame game;
-    ObjectFactory factory(&game);
-
-    for (int i = 0; i < 100; ++i)
-    {
-        EXPECT_EQ(factory.GetNetId(i), 0);
-        EXPECT_EQ(factory.GetPlayerId(i), 0);
-    }
-
-    factory.SetPlayerId(1, 9915);
-    EXPECT_EQ(factory.GetNetId(9915), 1);
-    EXPECT_EQ(factory.GetPlayerId(1), 9915);
-
-    for (int i = 100; i < 200; ++i)
-    {
-        EXPECT_EQ(factory.GetNetId(i), 0);
-        EXPECT_EQ(factory.GetPlayerId(i), 0);
-    }
-
-    factory.SetPlayerId(543, 10000000);
-    EXPECT_EQ(factory.GetNetId(10000000), 543);
-    EXPECT_EQ(factory.GetPlayerId(543), 10000000);
-}
-
 TEST(ObjectFactory, Hash)
 {
     MockIGame game;
@@ -332,183 +320,59 @@ TEST(ObjectFactory, Hash)
 
     EXPECT_EQ(factory.Hash(), 0);
 
-    TestMainObject* test_object = nullptr;
-    {
-        quint32 id = factory.CreateImpl(TestMainObject::T_ITEM_S());
-        ASSERT_EQ(id, 1);
-        ASSERT_GT(factory.GetIdTable().size(), 2);
-        IMainObject* object = factory.GetIdTable()[1].object;
-        ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
+    IdPtr<GlobalObjectsHolder> globals = factory.CreateImpl(GlobalObjectsHolder::GetTypeStatic());
+    globals->game_tick = 1;
+    EXPECT_CALL(game, GetGlobals())
+        .WillRepeatedly(Return(globals));
 
-        test_object = static_cast<TestMainObject*>(object);
+
+    TestObject* test_object = nullptr;
+    {
+        quint32 id = factory.CreateImpl(TestObject::GetTypeStatic());
+        ASSERT_EQ(id, 2);
+        ASSERT_GT(factory.GetIdTable().size(), 3);
+        kv::Object* object = factory.GetIdTable()[2].object;
+        ASSERT_EQ(object->GetType(), TestObject::GetTypeStatic());
+
+        test_object = static_cast<TestObject*>(object);
     }
     EXPECT_CALL(game, GetFactory())
         .WillOnce(ReturnRef(factory));
     test_object->SetFreq(1);
-    EXPECT_EQ(factory.Hash(), 2);
+    EXPECT_EQ(factory.Hash(), 5);
 
     factory.ForeachProcess();
-    EXPECT_EQ(factory.Hash(), 4);
+    EXPECT_EQ(factory.Hash(), 8);
 
     test_object->SetFreq(0);
-    EXPECT_EQ(factory.Hash(), 2);
+    EXPECT_EQ(factory.Hash(), 5);
 
     EXPECT_CALL(game, GetFactory())
         .WillOnce(ReturnRef(factory));
     test_object->SetFreq(1);
     factory.ForeachProcess();
-    EXPECT_EQ(factory.Hash(), 5);
+    EXPECT_EQ(factory.Hash(), 9);
 
     factory.DeleteLater(test_object->GetId());
     factory.ProcessDeletion();
-    EXPECT_EQ(factory.Hash(), 0);
+    EXPECT_EQ(factory.Hash(), 2);
 }
 
-TEST(ObjectFactory, SaveAndLoadNoObjects)
+TEST(ObjectFactory, Hearer)
 {
-    FastSerializer serializer;
-    quint32 hash = 0;
-    {
-        MockIGame game;
-        MockIMapMaster map;
-        SyncRandom rand;
-        rand.SetRand(4242, 32);
-        ObjectFactory factory(&game);
+    MockIGame game;
+    ObjectFactory factory(&game);
 
-        hash = factory.Hash();
+    IdPtr<GlobalObjectsHolder> globals
+        = factory.CreateImpl(GlobalObjectsHolder::GetTypeStatic());
 
-        EXPECT_CALL(game, GetRandom())
-            .WillOnce(ReturnRef(rand))
-            .WillOnce(ReturnRef(rand));
-        EXPECT_CALL(game, GetMap())
-            .WillOnce(ReturnRef(map))
-            .WillOnce(ReturnRef(map))
-            .WillOnce(ReturnRef(map));
+    EXPECT_CALL(game, GetGlobals())
+        .WillRepeatedly(Return(globals));
 
-        EXPECT_CALL(map, GetWidth())
-            .WillOnce(Return(13));
-        EXPECT_CALL(map, GetHeight())
-            .WillOnce(Return(17));
-        EXPECT_CALL(map, GetDepth())
-            .WillOnce(Return(23));
+    EXPECT_EQ(globals->hearers.size(), 0);
 
-        factory.Save(serializer);
-    }
-    FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
-    {
-        MockIGame game;
-        MockIMapMaster map;
-        SyncRandom rand;
-        MockIAtmosphere atmos;
-        ObjectFactory factory(&game);
+    IdPtr<Object> hearer = factory.CreateImpl(TestHearer::GetTypeStatic());
 
-        EXPECT_CALL(game, GetRandom())
-            .WillOnce(ReturnRef(rand));
-        EXPECT_CALL(game, GetMap())
-            .WillOnce(ReturnRef(map))
-            .WillOnce(ReturnRef(map));
-        EXPECT_CALL(map, ResizeMap(13, 17, 23));
-        EXPECT_CALL(game, SetMob(0));
-
-        IdPtr<IMob> mob = 0;
-        EXPECT_CALL(game, ChangeMob(mob));
-
-        EXPECT_CALL(map, GetAtmosphere())
-            .WillOnce(ReturnRef(atmos));
-        EXPECT_CALL(atmos, LoadGrid())
-            .Times(1);
-
-        factory.Load(deserializer, 0);
-        EXPECT_EQ(rand.GetCallsCounter(), 32);
-        EXPECT_EQ(rand.GetSeed(), 4242);
-
-        EXPECT_EQ(factory.Hash(), hash);
-    }
+    ASSERT_EQ(globals->hearers.size(), 1);
+    EXPECT_EQ(globals->hearers[0], hearer);
 }
-
-TEST(ObjectFactory, SaveAndLoadWithObjects)
-{
-    FastSerializer serializer;
-    quint32 hash = 0;
-    {
-        MockIGame game;
-        MockIMapMaster map;
-        SyncRandom rand;
-        rand.SetRand(4242, 32);
-        ObjectFactory factory(&game);
-
-        factory.CreateImpl(TestMainObject::T_ITEM_S());
-        factory.CreateImpl(TestMainObject::T_ITEM_S());
-
-        factory.SetPlayerId(1234, 2);
-
-        hash = factory.Hash();
-
-        EXPECT_CALL(game, GetRandom())
-            .WillOnce(ReturnRef(rand))
-            .WillOnce(ReturnRef(rand));
-        EXPECT_CALL(game, GetMap())
-            .WillOnce(ReturnRef(map))
-            .WillOnce(ReturnRef(map))
-            .WillOnce(ReturnRef(map));
-
-        EXPECT_CALL(map, GetWidth())
-            .WillOnce(Return(13));
-        EXPECT_CALL(map, GetHeight())
-            .WillOnce(Return(17));
-        EXPECT_CALL(map, GetDepth())
-            .WillOnce(Return(23));
-
-        factory.Save(serializer);
-    }
-    FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
-    {
-        MockIGame game;
-        MockIMapMaster map;
-        SyncRandom rand;
-        MockIAtmosphere atmos;
-        ObjectFactory factory(&game);
-
-        EXPECT_CALL(game, GetRandom())
-            .WillOnce(ReturnRef(rand));
-        EXPECT_CALL(game, GetMap())
-            .WillOnce(ReturnRef(map))
-            .WillOnce(ReturnRef(map));
-        EXPECT_CALL(map, ResizeMap(13, 17, 23));
-        EXPECT_CALL(game, SetMob(0));
-
-        IdPtr<IMob> mob = 0;
-        EXPECT_CALL(game, ChangeMob(mob));
-
-        EXPECT_CALL(map, GetAtmosphere())
-            .WillOnce(ReturnRef(atmos));
-        EXPECT_CALL(atmos, LoadGrid())
-            .Times(1);
-
-        factory.Load(deserializer, 0);
-        EXPECT_EQ(rand.GetCallsCounter(), 32);
-        EXPECT_EQ(rand.GetSeed(), 4242);
-
-        {
-            ASSERT_GE(factory.GetIdTable().size(), 2);
-            IMainObject* object = factory.GetIdTable()[1].object;
-            ASSERT_TRUE(object);
-            ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
-            TestMainObject* test_object = static_cast<TestMainObject*>(object);
-            test_object->SetDestructorCallback([](){});
-        }
-        {
-            ASSERT_GE(factory.GetIdTable().size(), 3);
-            IMainObject* object = factory.GetIdTable()[2].object;
-            ASSERT_TRUE(object);
-            ASSERT_EQ(object->T_ITEM(), TestMainObject::T_ITEM_S());
-            TestMainObject* test_object = static_cast<TestMainObject*>(object);
-            test_object->SetDestructorCallback([](){});
-        }
-
-        EXPECT_EQ(factory.Hash(), hash);
-        EXPECT_EQ(factory.GetNetId(2), 1234);
-        EXPECT_EQ(factory.GetPlayerId(1234), 2);
-    }
-}
-

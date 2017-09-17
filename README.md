@@ -1,7 +1,8 @@
 Griefly
 ===========
 
-[![Build Status](https://travis-ci.org/griefly/griefly.svg?branch=master)](https://travis-ci.org/griefly/griefly)
+[![Linux Build Status](https://travis-ci.org/griefly/griefly.svg?branch=master)](https://travis-ci.org/griefly/griefly)
+[![Windows Build Status](https://ci.appveyor.com/api/projects/status/github/griefly/griefly?branch=master&svg=true)](https://ci.appveyor.com/project/kremius/griefly)
 [![Coverage Status](https://coveralls.io/repos/github/griefly/griefly/badge.svg?branch=master)](https://coveralls.io/github/griefly/griefly?branch=master)
 [![Join the chat at https://gitter.im/griefly/griefly](https://badges.gitter.im/kremius/karya-valya.svg)](https://gitter.im/griefly/griefly?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
@@ -11,13 +12,10 @@ Dependencies
 -------------
 1. Some C++ compiler (it works at least with compiler from **Visual Studio 2012** and **g++**)
 2. Qt5 (e.g., **Desktop Qt 5.4.0 MSVC2012 OpenGL 32bit**). Qt Creator is optional, but desired
-3. SFML 2.*
-4. libpng
-5. zlib
-6. Python 2.7
-7. Golang 1.5+ (https://golang.org/dl/)
-8. Git
-9. CMake 3.*
+3. Python 3.5
+4. Golang 1.5+ (https://golang.org/dl/)
+5. Git
+6. CMake 3.*
 
 How to build everything on Windows
 ----------------------------------
@@ -25,40 +23,52 @@ _If you have any issues during the build process please report them_
 
 It should be possible to build everything without Qt Creator, but the guide assumes that Qt Creator is used.  
 
-1. All tools and libs from the depencies list should be available on your machine
+1. All tools and libs from the depencies list should be available on your machine. Tools and libs should be present in `%PATH%`
 2. Open CMakeLists.txt in Qt Creator  
    Open Project -> Select CMakeLists.txt -> Select build folder
-3. Environment variables  
-   In the opened project: Projects _(left column in Qt Creator)_ -> Build Environment  
-   It is needed to set environment or usual CMake variables for some libs. Other tools and libs should be present in `%PATH%`, so if you have installed them then everything should be fine.
-   Mine setted as:  
-  `Set PNG_INCLUDE_DIR to C:\Users\Kremius\Documents\ExternalLibs\lpng1612`  
-  `Set PNG_LIBRARY_DIR to C:\Users\Kremius\Documents\ExternalLibs\lpng1612\projects\vstudio\Release`  
-  `Set SFML_ROOT to C:\Users\Kremius\Documents\ExternalLibs\SFML-2.3`  
-  `Set ZLIB_ROOT to C:\Users\Kremius\Documents\ExternalLibs\zlib128-dll`  
-  If you cannot open the environment variables table (Qt Creator 3.\* does not allow that before successfull CMake generation) or prefer usual variables in CMake (Qt Creator 4.\* allows to use them in convenient way) then you can set them as `-DVARIABLE=VALUE` (e.g. `-DSFML_ROOT=C:\Users\Kremius\Documents\ExternalLibs\SFML-2.3`)
-4. Run CMake with param `-DCMAKE_BUILD_TYPE=Release` for Release verison.
-5. Build the project.  
+3. Run CMake with param `-DCMAKE_BUILD_TYPE=Release` for Release verison.
+4. Build the project.  
    Client executables will appear in the `exec` folder, and the server executable will appear in the `griefly-server` folder.  
-   Client executables depend from various dlls (Qt, SFML), so it is needed to manually place them to the `exec` folder.
+   Client executables depend from various dlls, so it is needed to manually place them to the `exec` folder.
 
-**Note:** It is supposed to perform build from an active git repository (`git describe --tags --abbrev=4` will be called during the process).
+**Note:** It's supposed to be built from an active git repository (`git describe --tags --abbrev=4` will be called during the process), otherwise it won't compile.  
 
 How to build everything on Linux
 --------------------------------
 
-1. Install dependencies. Look into `.travis.yml` file for clues.
-2. `./make.sh`. Built project will be placed under `exec` directory. Server will be
+1. Install dependencies. Look into `.travis.yml` file for clues. (For Arch Linux only: All dependencies can be installed with ` sudo pacman -S git qt5-base qt5-multimedia go python mesa gcc`)
+2. `cd` into installation directory.
+3. `git clone https://github.com/griefly/griefly.git`
+4. `cd griefly`
+4. `./make.sh`. Built project will be placed under `exec` directory. Server will be
    built in `gopath/src/griefly-server` directory.
 
-**Note:** It is supposed to perform build from an active git repository (`git describe --tags --abbrev=4` will be called during the process).  
+**Note:** It's supposed to be built from an active git repository (`git describe --tags --abbrev=4` will be called during the process), otherwise it won't compile.  
 **Note:** gccgo is not supported! The current `FindGo.cmake` cannot parse the gccgo version string, so you will obtain an error. Use the official version instead.  
 **Note:** There may be some issues with CMake 3.0.2, so try to update your CMake if issues appear.  
+
+How to build everything on MacOS
+--------------------------------
+
+1. Install dependencies using brew. `brew install qt`
+2. Look at the tips in `make.sh` and adjust your enviorment accordingly.
+3. `./make.sh`. Build project will be placed under `exec` directory Server will be
+   built in `gopath/src/griefly-server` directory.
 
 How to start server
 -------------------
 
-Just run the executable from directory `gopath/src/griefly-server`.
+Server available in directory `gopath/src/griefly-server`. When hosting server,
+consider following adjustments:
+
+1. Change password for admin user in db/auth.json. Passwords stored in plain
+   text now.
+2. When starting server, provide `-server-url` parameter. This parameter is an URL for asset server.
+   It should be either host address (when server exposed to internet directly) or external ip
+   (when running behind NAT). Server will bind on port, extracted from this url and
+   clients will use url to connect to server for map exchange.
+
+Other server options available in help: `griefly-server -h`
 
 How to run game without launcher
 --------------------------------

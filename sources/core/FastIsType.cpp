@@ -23,10 +23,17 @@ public:
             cast_table = new QVector<QBitArray>;
 
             QFile json_file("metadata.json");
-            json_file.open(QIODevice::ReadOnly);
+            if (!json_file.open(QIODevice::ReadOnly))
+            {
+                kv::Abort("Unable to open 'metadata.json' file!");
+            }
             QByteArray json_raw = json_file.readAll();
             parsed_json_ = QJsonDocument::fromJson(json_raw);
             classes_data_ = parsed_json_.object().value("classes").toArray();
+            if (classes_data_.isEmpty())
+            {
+                kv::Abort("'metadata.json' is corrupted!");
+            }
 
             InitTable();
             inited = true;
@@ -51,7 +58,7 @@ private:
         }
 
         QString base_name = GetBaseNameOfClass(class_num);
-        if (base_name == "IMainObject")
+        if (base_name == "Object")
         {
             return false;
         }

@@ -7,10 +7,13 @@
 #include <QDebug>
 
 #include "FastIsType.h"
-#include "KVAbort.h"
+#include "KvAbort.h"
 #include "FastSerializer.h"
 
-class IMainObject;
+namespace kv
+{
+    class Object;
+}
 
 struct ObjectInfo
 {
@@ -19,15 +22,15 @@ struct ObjectInfo
     {
         // Nothing
     }
-    IMainObject* object;
+    kv::Object* object;
 };
 
-extern std::vector<ObjectInfo>* id_ptr_id_table;
+extern QVector<ObjectInfo>* id_ptr_id_table;
 
 struct IdPtrBase
 {
 protected:
-    mutable IMainObject* casted_;
+    mutable kv::Object* casted_;
     quint32 id_;
 };
 
@@ -35,9 +38,9 @@ template<class T>
 class IdPtr : public IdPtrBase
 {
     template<class U>
-    friend FastDeserializer& operator<<(FastDeserializer& stream, const IdPtr<U>& ptr);
+    friend kv::FastDeserializer& operator<<(kv::FastDeserializer& stream, const IdPtr<U>& ptr);
     template<class U>
-    friend FastSerializer& operator>>(FastSerializer& stream, IdPtr<U>& ptr);
+    friend kv::FastSerializer& operator>>(kv::FastSerializer& stream, IdPtr<U>& ptr);
     template<class U>
     friend class IdPtr;
 public:
@@ -61,12 +64,12 @@ public:
         *this = other;
     }
     template<class U>
-    bool operator==(const IdPtr<U>& other)
+    bool operator==(const IdPtr<U>& other) const
     {
         return id_ == other.id_;
     }
     template<class U>
-    bool operator!=(const IdPtr<U>& other)
+    bool operator!=(const IdPtr<U>& other) const
     {
         return !operator==(other);
     }
@@ -118,42 +121,42 @@ public:
         return *this;
     }
 
-    T* operator*() const
+    T& operator*() const
     {
         if (id_ == 0)
         {
-            return nullptr;
+            kv::Abort("Unable to dereference IdPtr with 0 id");
         }
         if (casted_ == nullptr)
         {
             Update();
         }
-        return static_cast<T*>(casted_);
+        return *static_cast<T*>(casted_);
     }
 
     T* operator->() const
     {
-        return operator*();
+        return &operator*();
     }
 
     bool IsValid() const
     {
         Update();
-        return operator*() != nullptr;
+        return casted_ != nullptr;
     }
-    operator void*() const
+    explicit operator bool() const
     {
 #if defined(KV_ID_PTR_VALID_CACHE)
         if (casted_)
         {
-            return static_cast<void*>(casted_);
+            return true;
         }
 #endif // KV_ID_PTR_VALID_CACHE
         if (IsValid())
         {
-            return static_cast<void*>(casted_);
+            return true;
         }
-        return nullptr;
+        return false;
     }
     quint32 Id() const
     {
@@ -168,7 +171,7 @@ private:
             return;
         }
 
-        IMainObject* local = GetFromIdTable(id_);
+        kv::Object* local = GetFromIdTable(id_);
         if (local == nullptr)
         {
             casted_ = nullptr;
@@ -185,32 +188,35 @@ private:
         }
     }
 
-    static IMainObject* GetFromIdTable(quint32 id)
+    static kv::Object* GetFromIdTable(quint32 id)
     {
-        if (id >= id_ptr_id_table->size())
+        if (static_cast<int>(id) >= id_ptr_id_table->size())
         {
-            qDebug() << "Id table lookup fail, id: "
-                     << id << ", size: " << id_ptr_id_table->size();
-            KvAbort();
+            kv::Abort(QString("Id table lookup fail, id: %1, size: %2")
+                .arg(id).arg(id_ptr_id_table->size()));
         }
         return (*id_ptr_id_table)[id].object;
     }
-    // Dynamic memory allocation is disabled
-    static void* operator new(size_t);
 };
 
 template<typename T>
-FastSerializer& operator<<(FastSerializer& stream, const IdPtr<T>& ptr)
+kv::FastSerializer& operator<<(kv::FastSerializer& stream, const IdPtr<T>& ptr)
 {
     stream << ptr.Id();
     return stream;
 }
 
 template<typename T>
-FastDeserializer& operator>>(FastDeserializer& stream, IdPtr<T>& ptr)
+kv::FastDeserializer& operator>>(kv::FastDeserializer& stream, IdPtr<T>& ptr)
 {
     quint32 id;
     stream >> id;
     ptr = id;
     return stream;
+}
+
+template<class T>
+unsigned int Hash(const IdPtr<T>& ptr)
+{
+    return ptr.Id();
 }

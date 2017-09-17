@@ -11,42 +11,16 @@
 #include <QKeyEvent>
 #include <QElapsedTimer>
 
-const char* const STOP_MUSIC = "^";
+#include "Sound.h"
+#include "core/Constheader.h"
 
-class Representation
+#include "CoreInterface.h"
+
+class Representation : public QObject
 {
+    Q_OBJECT
 public:
-    Representation();
-
-    struct Entity
-    {
-        Entity();
-
-        ViewInfo view;
-        quint32 id;
-        int pos_x;
-        int pos_y;
-        int vlevel;
-        int dir;
-    };
-
-    struct InterfaceUnit
-    {
-        InterfaceUnit();
-        ViewInfo view;
-        QString name;
-
-        int pixel_x;
-        int pixel_y;
-
-        int shift;
-    };
-
-    struct Sound
-    {
-        Sound(const QString& name) : name(name) {}
-        QString name;
-    };
+    Representation(QObject* parent = nullptr);
 
     struct Performance
     {
@@ -57,11 +31,10 @@ public:
     const Performance& GetPerformance() { return performance_; }
     void ResetPerformance();
 
-    void AddToNewFrame(const InterfaceUnit& unit);
-    void AddToNewFrame(const Entity& ent);
-    void AddToNewFrame(const Sound& sound);
-
-    void SetCameraForFrame(int pos_x, int pos_y);
+    kv::GrowingFrame GetGrowingFrame() const
+    {
+        return kv::GrowingFrame(new_frame_);
+    }
 
     void Swap();
     void Process();
@@ -71,6 +44,15 @@ public:
     void HandleKeyboardUp(QKeyEvent* event);
     void ResetKeysState();
     void HandleInput();
+
+    quint32 GetUniqueIdForNewFrame(quint32 base_id, quint32 number);
+
+    SoundPlayer& GetSoundPlayer() { return player_; }
+signals:
+    void chatMessage(const QString& html);
+    void systemText(const QString& tab, const QString& text);
+    void clearSystemTexts();
+    void removeEmptyTabs();
 private:
     QMap<Qt::Key, bool> keys_state_;
 
@@ -94,22 +76,15 @@ private:
 
     bool is_updated_;
 
-    struct FrameData
-    {
-        std::vector<Entity> entities;
-        std::vector<QString> sounds;
-        std::vector<InterfaceUnit> units;
-        int camera_pos_x;
-        int camera_pos_y;
-    };
+    using DataType = kv::FrameData;
 
-    typedef FrameData DataType;
-
-    DataType* current_frame_;
+    DataType* old_frame_;
     DataType* new_frame_;
 
     DataType first_data_;
     DataType second_data_;
+
+    DataType current_frame_;
 
     struct ViewWithFrameId
     {
@@ -138,8 +113,6 @@ private:
         int pixel_shift_x_;
         int pixel_shift_y_;
     } camera_;
-};
 
-Representation &GetRepresentation();
-bool IsRepresentationValid();
-void SetRepresentation(Representation* g_r);
+    SoundPlayer player_;
+};

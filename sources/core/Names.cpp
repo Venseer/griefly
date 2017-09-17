@@ -1,9 +1,7 @@
 #include "Names.h"
 
-#include <vector>
-#include <fstream>
-
 #include "Game.h"
+#include "SynchronizedRandom.h"
 
 void Names::LoadNames()
 {
@@ -12,8 +10,7 @@ void Names::LoadNames()
         QFile male_file("names/first_male.txt");
         if (!male_file.open(QIODevice::ReadOnly | QIODevice::Text))
         {
-            qDebug() << "Unable to open" << male_file.fileName();
-            KvAbort();
+            kv::Abort(QString("Unable to open %1").arg(male_file.fileName()));
         }
         while (male_file.bytesAvailable())
         {
@@ -30,8 +27,7 @@ void Names::LoadNames()
         QFile last_file("names/last.txt");
         if (!last_file.open(QIODevice::ReadOnly | QIODevice::Text))
         {
-            qDebug() << "Unable to open" << last_file.fileName();
-            KvAbort();
+            kv::Abort(QString("Unable to open %1").arg(last_file.fileName()));
         }
         while (last_file.bytesAvailable())
         {
@@ -45,15 +41,17 @@ void Names::LoadNames()
     }
 }
 
-Names::Names(SyncRandom* random)
-    : random_(random)
+Names::Names(GameInterface* game)
+    : game_(game)
 {
     LoadNames();
 }
 
 QString Names::GetMaleName()
 {
-    unsigned int f = random_->GetRand() % male_names_.size();
-    unsigned int l = random_->GetRand() % last_name_.size();
-    return male_names_[f] + " " + last_name_[l];
+    IdPtr<kv::SynchronizedRandom> random = game_->GetGlobals()->random;
+
+    quint32 first = random->Generate() % male_names_.size();
+    quint32 last = random->Generate() % last_name_.size();
+    return QString("%1 %2").arg(male_names_[first]).arg(last_name_[last]);
 }

@@ -1,12 +1,17 @@
 #pragma once
 
-#include "OnMapObject.h"
+#include "MaterialObject.h"
 
-class Computer: public IOnMapObject
+namespace kv
+{
+
+class Computer : public MaterialObject
 {
 public:
-    DECLARE_SAVED(Computer, IOnMapObject);
-    DECLARE_GET_TYPE_ITEM(Computer);
-    Computer(quint32 id);
+    DECLARE_SAVEABLE(Computer, MaterialObject);
+    REGISTER_CLASS_AS(Computer);
+    Computer();
 };
-ADD_TO_TYPELIST(Computer);
+END_DECLARE(Computer);
+
+}

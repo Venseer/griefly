@@ -5,7 +5,10 @@
 
 #include <vector>
 
-#include "KVAbort.h"
+#include "KvAbort.h"
+
+namespace kv
+{
 
 const QLatin1String END_TYPE("0~$");
 
@@ -16,7 +19,7 @@ class FastSerializer
         FastSerializer& serializer,
         const T& value);
 public:
-    typedef char Type;
+    using Type = char;
 
     static const Type BOOL_TYPE = 1;
     static const Type INT32_TYPE = 2;
@@ -161,6 +164,10 @@ public:
         }
         return false;
     }
+    quint32 GetIndex() const
+    {
+        return index_;
+    }
     void ReadType(QString* value)
     {
         Read(value, FastSerializer::TYPE_TYPE);
@@ -181,8 +188,7 @@ public:
     {
         if (IsEnd())
         {
-            qDebug() << "Cannot determine the next type because the end has been reached!";
-            KvAbort();
+            kv::Abort("Cannot determine the next type because the end has been reached!");
         }
         return data_[index_];
     }
@@ -297,8 +303,7 @@ private:
     {
         if ((size + index_) > size_)
         {
-            qDebug() << "FastDeserializer: EnsureSize fail!";
-            KvAbort();
+            kv::Abort("FastDeserializer: EnsureSize fail!");
         }
     }
     void EnsureType(FastSerializer::Type type)
@@ -307,8 +312,7 @@ private:
         if (data_[index_] != type)
         {
             const QString TEMPLATE("Types mismatch: expected - %1, actual - %2");
-            qDebug() << TEMPLATE.arg(static_cast<int>(type)).arg(static_cast<int>(data_[index_]));
-            KvAbort();
+            kv::Abort(TEMPLATE.arg(static_cast<int>(type)).arg(static_cast<int>(data_[index_])));
         }
         ++index_;
     }
@@ -326,6 +330,8 @@ inline FastDeserializer& operator>>(FastDeserializer& deserializer, T& value)
 }
 
 QString Humanize(FastDeserializer* deserializer);
+
+}
 
 
 

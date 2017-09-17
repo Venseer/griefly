@@ -1,91 +1,71 @@
 #include "Professions.h"
 
-#include "Clothes.h"
-#include "MedbayTools.h"
-#include "Weapons.h"
-#include "Interface.h"
+#include "movable/items/Clothes.h"
+#include "movable/items/MedbayTools.h"
+#include "movable/items/Weapons.h"
+
+using namespace kv;
 
 void professions::ToSecurityOfficer(IdPtr<Human> human)
 {
-    HumanInterface* hud = human->GetHumanInterface();
+    IdPtr<HumanInterface> hud = human->GetHumanInterface();
 
-    hud->uniform_.Set(human->Create<Item>(RedUniform::T_ITEM_S()));
-    hud->feet_.Set(human->Create<Item>(OrangeBoots::T_ITEM_S()));
-    hud->head_.Set(human->Create<Item>(Helmet::T_ITEM_S()));
-    hud->suit_.Set(human->Create<Item>(Armor::T_ITEM_S()));
+    hud->InsertItem(slot::UNIFORM, human->Create<Item>(RedUniform::GetTypeStatic()));
+    hud->InsertItem(slot::FEET, human->Create<Item>(OrangeBoots::GetTypeStatic()));
+    hud->InsertItem(slot::HEAD, human->Create<Item>(Helmet::GetTypeStatic()));
+    hud->InsertItem(slot::SUIT, human->Create<Item>(Armor::GetTypeStatic()));
 
     // Red boots hack
-    hud->feet_.Get()->SetState("red");
-    hud->feet_.Get()->name = "Red boots";
-
-    hud->uniform_.Get()->SetOwner(human.Id());
-    hud->feet_.Get()->SetOwner(human.Id());
-    hud->head_.Get()->SetOwner(human.Id());
-    hud->suit_.Get()->SetOwner(human.Id());
+    hud->GetItem(slot::FEET)->SetState("red");
+    hud->GetItem(slot::FEET)->name = "Red boots";
 
     human->UpdateOverlays();
 }
 
 void professions::ToDoctor(IdPtr<Human> human)
 {
-    HumanInterface* hud = human->GetHumanInterface();
+    IdPtr<HumanInterface> hud = human->GetHumanInterface();
 
-    hud->uniform_.Set(human->Create<Item>(MedicalUniform::T_ITEM_S()));
-    hud->feet_.Set(human->Create<Item>(WhiteShoes::T_ITEM_S()));
-    hud->r_hand_.Set(human->Create<Item>(BruisePack::T_ITEM_S()));
-
-    hud->uniform_.Get()->SetOwner(human.Id());
-    hud->feet_.Get()->SetOwner(human.Id());
-    hud->r_hand_.Get()->SetOwner(human.Id());
+    hud->InsertItem(slot::UNIFORM, human->Create<Item>(MedicalUniform::GetTypeStatic()));
+    hud->InsertItem(slot::FEET, human->Create<Item>(WhiteShoes::GetTypeStatic()));
+    hud->InsertItem(slot::RIGHT_HAND, human->Create<Item>(BruisePack::GetTypeStatic()));
 
     human->UpdateOverlays();
 }
 
 void professions::ToAssistant(IdPtr<Human> human)
 {
-    HumanInterface* hud = human->GetHumanInterface();
+    IdPtr<HumanInterface> hud = human->GetHumanInterface();
 
-    hud->uniform_.Set(human->Create<Item>(JanitorUniform::T_ITEM_S()));
-    hud->feet_.Set(human->Create<Item>(BlackBoots::T_ITEM_S()));
+    hud->InsertItem(slot::UNIFORM, human->Create<Item>(JanitorUniform::GetTypeStatic()));
+    hud->InsertItem(slot::FEET, human->Create<Item>(BlackBoots::GetTypeStatic()));
 
     // Grey uniform hack
-    hud->uniform_.Get()->SetState("grey");
-    hud->uniform_.Get()->name = "Grey uniform";
-
-    hud->uniform_.Get()->SetOwner(human.Id());
-    hud->feet_.Get()->SetOwner(human.Id());
+    hud->GetItem(slot::UNIFORM)->SetState("grey");
+    hud->GetItem(slot::UNIFORM)->name = "Grey uniform";
 
     human->UpdateOverlays();
 }
 
 void professions::ToClown(IdPtr<Human> human)
 {
-    HumanInterface* hud = human->GetHumanInterface();
+    IdPtr<HumanInterface> hud = human->GetHumanInterface();
 
-    hud->uniform_.Set(human->Create<Item>(ClownUniform::T_ITEM_S()));
-    hud->feet_.Set(human->Create<Item>(ClownBoots::T_ITEM_S()));
-
-    hud->uniform_.Get()->SetOwner(human.Id());
-    hud->feet_.Get()->SetOwner(human.Id());
+    hud->InsertItem(slot::UNIFORM, human->Create<Item>(ClownUniform::GetTypeStatic()));
+    hud->InsertItem(slot::FEET, human->Create<Item>(ClownBoots::GetTypeStatic()));
 
     human->UpdateOverlays();
 }
 
 void professions::ToBarman(IdPtr<Human> human)
 {
-    HumanInterface* hud = human->GetHumanInterface();
+    IdPtr<HumanInterface> hud = human->GetHumanInterface();
 
-    hud->uniform_.Set(human->Create<Item>(BarmanUniform::T_ITEM_S()));
-    hud->feet_.Set(human->Create<Item>(BlackBoots::T_ITEM_S()));
-    hud->head_.Set(human->Create<Item>(Tophat::T_ITEM_S()));
-    hud->suit_.Set(human->Create<Item>(Armor::T_ITEM_S()));
-    hud->r_hand_.Set(human->Create<Item>(Revolver::T_ITEM_S()));
-
-    hud->uniform_.Get()->SetOwner(human.Id());
-    hud->feet_.Get()->SetOwner(human.Id());
-    hud->head_.Get()->SetOwner(human.Id());
-    hud->suit_.Get()->SetOwner(human.Id());
-    hud->r_hand_.Get()->SetOwner(human.Id());
+    hud->InsertItem(slot::UNIFORM, human->Create<Item>(BarmanUniform::GetTypeStatic()));
+    hud->InsertItem(slot::FEET, human->Create<Item>(BlackBoots::GetTypeStatic()));
+    hud->InsertItem(slot::HEAD, human->Create<Item>(Tophat::GetTypeStatic()));
+    hud->InsertItem(slot::SUIT, human->Create<Item>(Armor::GetTypeStatic()));
+    hud->InsertItem(slot::RIGHT_HAND, human->Create<Item>(Revolver::GetTypeStatic()));
 
     human->UpdateOverlays();
 }

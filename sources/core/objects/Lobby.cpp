@@ -1,26 +1,16 @@
 #include "Lobby.h"
 
-Lobby* single_lobby = nullptr;
-void SetLobby(Lobby* lobby)
-{
-    single_lobby = lobby;
-}
+using namespace kv;
 
-Lobby& GetLobby()
-{
-    return *single_lobby;
-}
-
-Lobby::Lobby(quint32 id): IMainObject(id)
+Lobby::Lobby()
 {
     seconds_ = 1;//60 * 2;
 }
 
 void Lobby::AfterWorldCreation()
 {
-    IMainObject::AfterWorldCreation();
+    Object::AfterWorldCreation();
     SetFreq(10);
-    SetThisAsLobby();
 }
 
 int Lobby::GetSecondUntilStart()
@@ -38,20 +28,15 @@ void Lobby::AddSpawnPoint(IdPtr<SpawnPoint> point)
     spawn_points_.push_back(point);
 }
 
-std::vector<IdPtr<CubeTile>> Lobby::GetTilesFor(const QString& type)
+QVector<IdPtr<CubeTile>> Lobby::GetTilesFor(const QString& type)
 {
-    std::vector<IdPtr<CubeTile>> retval;
+    QVector<IdPtr<CubeTile>> retval;
     for (auto it = spawn_points_.begin(); it != spawn_points_.end(); ++it)
     {
         if ((*it)->spawn_type == type)
         {
-            retval.push_back((*it)->GetOwner());
+            retval.append((*it)->GetOwner());
         }
     }
     return retval;
-}
-
-void Lobby::SetThisAsLobby()
-{
-    SetLobby(this);
 }

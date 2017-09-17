@@ -4,17 +4,17 @@
 
 #include <algorithm>
 
-#include "../SyncRandom.h"
+#include "../SynchronizedRandom.h"
 #include "../Helpers.h"
 
 #include "AtmosGrid.h"
 
-#include "representation/Text.h"
+#include "representation/Representation.h"
 
-Atmosphere::Atmosphere(SyncRandom* random, IMapMaster* map, TextPainter *texts)
-    : random_(random),
-      map_(map),
-      texts_(texts)
+using namespace kv;
+
+Atmosphere::Atmosphere()
+    : map_(nullptr)
 {
     grid_processing_ns_ = 0;
     movement_processing_ns_ = 0;
@@ -22,20 +22,6 @@ Atmosphere::Atmosphere(SyncRandom* random, IMapMaster* map, TextPainter *texts)
     x_size_ = 0;
     y_size_ = 0;
     z_size_ = 0;
-
-    (*texts_)["{Perf}AtmosGridProcessing"].SetUpdater
-    ([&](QString* str)
-    {
-        *str = QString("Atmos grid processing: %1 ms")
-            .arg((grid_processing_ns_ * 1.0) / 1000000.0);
-    }).SetFreq(1000);
-
-    (*texts_)["{Perf}AtmosMove"].SetUpdater
-    ([&](QString* str)
-    {
-        *str = QString("Atmos move processing: %1 ms")
-            .arg((movement_processing_ns_ * 1.0) / 1000000.0);
-    }).SetFreq(1000);
 
     qDebug() << "Atmosphere load";
     z_size_ = 1;
@@ -49,14 +35,16 @@ void Atmosphere::Resize(quint32 x, quint32 y, quint32 z)
     z_size_ = z;
 
     delete grid_;
-    grid_ = new AtmosGrid(random_, x_size_, y_size_);
+    grid_ = new atmos::AtmosGrid(x_size_, y_size_);
 }
 
-void Atmosphere::Process()
+void Atmosphere::Process(qint32 game_tick)
 {
+    AssertGrid();
+
     QElapsedTimer timer;
     timer.start();
-    grid_->Process();
+    grid_->Process(game_tick);
     grid_processing_ns_ = (grid_processing_ns_ + timer.nsecsElapsed()) / 2;
     timer.start();
 }
@@ -64,44 +52,47 @@ void Atmosphere::Process()
 const int PRESSURE_MOVE_BORDER = 1000;
 const int FLOW_MOVE_BORDER = -15;
 
-void Atmosphere::ProcessTileMove(int x, int y, int z)
-{   
-    auto tile = map_->GetSquares()[x][y][z];
+void Atmosphere::ProcessTileMove(int x, int y, int z, qint32 game_tick)
+{
+    atmos::AtmosGrid::Cell& cell = grid_->At(x, y);
 
-    if (tile->GetTurf()->GetAtmosState() == NON_SIMULATED)
+    Vector force;
+
+    if (cell.flags & atmos::NO_OBJECTS)
     {
-        return;
-    }
-
-    AtmosGrid::Cell& cell = grid_->At(x, y);
-
-    VDir force;
-
-    for (int dir = 0; dir < atmos::DIRS_SIZE; ++dir)
-    {
-        int flow = cell.flows[dir];
-        cell.flows[dir] = 0;
-        if (flow  <= FLOW_MOVE_BORDER)
+        for (int dir = 0; dir < atmos::DIRS_SIZE; ++dir)
         {
-            VDir local = DirToVDir[atmos::INDEXES_TO_DIRS[dir]];
-            force.x += local.x;
-            force.y += local.y;
+            cell.flows[dir] = 0;
         }
     }
-
-    if (IsNonZero(force))
+    else
     {
-        if (tile->GetInsideList().size())
+        for (int dir = 0; dir < atmos::DIRS_SIZE; ++dir)
         {
-            auto i = tile->GetInsideList().rbegin();
-            while (   (i != tile->GetInsideList().rend())
-                   && ((*i)->passable_level == Passable::EMPTY))
+            int flow = cell.flows[dir];
+            cell.flows[dir] = 0;
+            if (flow <= FLOW_MOVE_BORDER)
             {
-                ++i;
+                Vector local = DirToVDir(atmos::INDEXES_TO_DIRS[static_cast<int>(dir)]);
+                force.x += local.x;
+                force.y += local.y;
             }
-            if (i != tile->GetInsideList().rend())
+        }
+        if (IsNonZero(force))
+        {
+            auto tile = map_->At(x, y, z);
+            if (tile->GetInsideList().size())
             {
-                (*i)->ApplyForce(force);
+                auto i = tile->GetInsideList().rbegin();
+                while (   (i != tile->GetInsideList().rend())
+                       && ((*i)->passable_level == passable::EMPTY))
+                {
+                    ++i;
+                }
+                if (i != tile->GetInsideList().rend())
+                {
+                    (*i)->ApplyForce(force);
+                }
             }
         }
     }
@@ -116,14 +107,21 @@ void Atmosphere::ProcessTileMove(int x, int y, int z)
         return;
     }
 
-    if (!cell.IsPassable(atmos::CENTER))
+    if (!cell.IsPassable(atmos::CENTER_BLOCK))
     {
         return;
     }
 
+    const int UNPASSABLE_FREQUENCY = 6;
+    if (((x + y) % UNPASSABLE_FREQUENCY) != (game_tick % UNPASSABLE_FREQUENCY))
+    {
+        return;
+    }
+
+    auto tile = map_->At(x, y, z);
     for (int dir = 0; dir < atmos::DIRS_SIZE; ++dir)
     {
-        AtmosGrid::Cell& nearby = grid_->Get(x, y, atmos::DIRS[dir]);
+        atmos::AtmosGrid::Cell& nearby = grid_->Get(x, y, atmos::INDEXES_TO_DIRS[dir]);
         if (  (nearby.data.pressure + PRESSURE_MOVE_BORDER)
             < cell.data.pressure)
         {
@@ -141,7 +139,7 @@ void Atmosphere::ProcessTileMove(int x, int y, int z)
             {
                 if (!cell.IsPassable(atmos::DIRS[dir]))
                 {
-                    Dir revert_dir = atmos::REVERT_DIRS_INDEXES[dir];
+                    int revert_dir = atmos::REVERT_DIRS_INDEXES[dir];
                     Dir bump_dir = atmos::INDEXES_TO_DIRS[revert_dir];
                     tile->BumpByGas(bump_dir, true);
                     continue;
@@ -151,8 +149,10 @@ void Atmosphere::ProcessTileMove(int x, int y, int z)
     }
 }
 
-void Atmosphere::ProcessMove()
+void Atmosphere::ProcessMove(qint32 game_tick)
 {
+    AssertGrid();
+
     QElapsedTimer timer;
     timer.start();
 
@@ -162,7 +162,7 @@ void Atmosphere::ProcessMove()
         {
             for (int y = 0; y < y_size_; ++y)
             {
-                ProcessTileMove(x, y, z);
+                ProcessTileMove(x, y, z, game_tick);
             }
         }
     }
@@ -170,28 +170,54 @@ void Atmosphere::ProcessMove()
             = (movement_processing_ns_ + timer.nsecsElapsed()) / 2;
 }
 
-void Atmosphere::SetFlags(quint32 x, quint32 y, quint32 z, IAtmosphere::Flags flags)
+void Atmosphere::Represent(GrowingFrame* frame) const
 {
+    frame->Append(
+        FrameData::TextEntry{
+            "Performance",
+            QString("Atmos grid processing: %1 ms").arg((grid_processing_ns_ * 1.0) / 1000000.0)});
+
+    frame->Append(
+        FrameData::TextEntry{
+            "Performance",
+            QString("Atmos move processing: %1 ms").arg((movement_processing_ns_ * 1.0) / 1000000.0)});
+}
+
+void Atmosphere::SetFlags(quint32 x, quint32 y, quint32 z, AtmosInterface::Flags flags)
+{
+    AssertGrid();
+
     grid_->At(x, y).flags = flags;
 }
 
-void Atmosphere::LoadGrid()
+void Atmosphere::LoadGrid(MapInterface* map)
 {
-    auto& squares = map_->GetSquares();
+    map_ = map;
+
+    Resize(map_->GetWidth(), map_->GetHeight(), map_->GetDepth());
+
     for (int z = 0; z < z_size_; ++z)
     {
         for (int x = 0; x < x_size_; ++x)
         {
             for (int y = 0; y < y_size_; ++y)
             {
-                auto& tile = squares[x][y][z];
+                auto& tile = map_->At(x, y, z);
                 tile->UpdateAtmosPassable();
-                AtmosHolder* holder = tile->GetAtmosHolder();
-                AtmosGrid::Cell& cell = grid_->At(x, y);
+                atmos::AtmosHolder* holder = tile->GetAtmosHolder();
+                atmos::AtmosGrid::Cell& cell = grid_->At(x, y);
 
                 cell.data = holder->data_;
                 holder->SetAtmosData(&cell.data);
             }
         }
+    }
+}
+
+void Atmosphere::AssertGrid()
+{
+    if (!map_)
+    {
+        kv::Abort("Atmosphere: Grid is not loaded!");
     }
 }

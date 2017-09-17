@@ -2,42 +2,44 @@
 
 #include "interfaces_mocks.h"
 
-#include "core/objects/MainObject.h"
+#include "core/objects/Object.h"
 
 using ::testing::ReturnRef;
 using ::testing::Return;
 
+using namespace kv;
+
 TEST(MainObject, Constructor)
 {
-    IMainObject object(42);
-    ASSERT_EQ(object.GetId(), 42);
+    Object object;
+    ASSERT_EQ(object.GetId(), 0);
     ASSERT_EQ(object.GetFreq(), 0);
 
-    IMainObject object2(/*NotLoadItem*/nouse);
+    Object object2(kv::internal::no_initialization);
     ASSERT_EQ(object2.GetId(), 0);
     ASSERT_EQ(object2.GetFreq(), 0);
 }
 
 TEST(MainObject, Types)
 {
-   ASSERT_EQ(IMainObject::T_ITEM_S(), "main");
-   IMainObject object(42);
-   ASSERT_EQ(object.T_ITEM(), "main");
+   ASSERT_EQ(Object::GetTypeStatic(), "main");
+   Object object;
+   ASSERT_EQ(object.GetType(), "main");
 
-   ASSERT_EQ(object.RT_ITEM(), 0);
-   ASSERT_EQ(IMainObject::RT_ITEM_S(), 0);
+   ASSERT_EQ(object.GetTypeIndex(), 0);
+   ASSERT_EQ(Object::GetTypeIndexStatic(), 0);
 }
 
 TEST(MainObject, Hash)
 {
-    IMainObject object(24);
-    ASSERT_EQ(object.Hash(), 24);
+    Object object;
+    ASSERT_EQ(object.HashMembers(), 0);
 }
 
 TEST(MainObject, EmptyFunctions)
 {
     // They just should not crash the game
-    IMainObject object(11);
+    Object object;
     object.AfterWorldCreation();
     object.Process();
 }
@@ -45,7 +47,8 @@ TEST(MainObject, EmptyFunctions)
 TEST(MainObject, Save)
 {
     {
-        IMainObject object(42);
+        Object object;
+        kv::internal::GetObjectId(&object) = 42;
         FastSerializer save(1);
         object.Save(save);
 
@@ -66,8 +69,9 @@ TEST(MainObject, Save)
         EXPECT_CALL(factory, AddProcessingItem(42))
             .WillOnce(Return());
 
-        IMainObject object(42);
-        object.SetGame(&game);
+        Object object;
+        kv::internal::GetObjectId(&object) = 42;
+        kv::internal::GetObjectGame(&object) = &game;
         FastDeserializer save("\x02\x08\x00\x00\x00", 5);
         object.Load(save);
         EXPECT_EQ(object.GetFreq(), 8);
@@ -77,31 +81,31 @@ TEST(MainObject, Save)
 TEST(MainObjectDeathTest, Deaths)
 {
     {
-        IMainObject object(42);
+        Object object;
         ASSERT_DEATH(
         {
             object.GetGame();
-        }, "IMainObject::GetGame\\(\\) is called during construction of object");
+        }, "Object::GetGame\\(\\) is called during construction of object");
     }
     {
-        IMainObject object(42);
-        const IMainObject* ptr = &object;
+        Object object;
+        const Object* ptr = &object;
         ASSERT_DEATH(
         {
             ptr->GetGame();
-        }, "IMainObject::GetGame\\(\\) is called during construction of object");
+        }, "Object::GetGame\\(\\) is called during construction of object");
     }
     {
-        IMainObject object(42);
+        Object object;
         ASSERT_DEATH(
         {
             object.SetFreq(0);
         }, "SetFreq is called in constructor");
     }
     {
-        IMainObject object(0);
+        Object object;
         MockIGame game;
-        object.SetGame(&game);
+        kv::internal::GetObjectGame(&object) = &game;
         ASSERT_DEATH(
         {
             object.SetFreq(0);
@@ -115,23 +119,18 @@ TEST(MainObject, SettersAndGettersAndCreateImpl)
         MockIGame game;
         MockIObjectFactory factory;
 
-        IMainObject object(43);
-        object.SetGame(&game);
-        IGame* interface_game = &object.GetGame();
+        Object object;
+        kv::internal::GetObjectId(&object) = 43;
+        kv::internal::GetObjectGame(&object) = &game;
+        GameInterface* interface_game = &object.GetGame();
         ASSERT_EQ(interface_game, &game);
 
-        const IMainObject& object_const_ref = object;
+        const Object& object_const_ref = object;
         ASSERT_EQ(&object_const_ref.GetGame(), &game);
 
         EXPECT_CALL(game, GetFactory())
             .WillRepeatedly(ReturnRef(factory));
         ASSERT_EQ(&object.GetFactory(), &factory);
-
-        SyncRandom random;
-        random.SetRand(42, 42);
-        EXPECT_CALL(game, GetRandom())
-            .WillRepeatedly(ReturnRef(random));
-        ASSERT_EQ(object.GetRand(), 5885939);
     }
     {
         MockIGame game;
@@ -139,17 +138,14 @@ TEST(MainObject, SettersAndGettersAndCreateImpl)
         EXPECT_CALL(game, GetFactory())
             .WillRepeatedly(ReturnRef(factory));
 
-        IMainObject object(43);
-        object.SetGame(&game);
+        Object object;
+        kv::internal::GetObjectId(&object) = 43;
+        kv::internal::GetObjectGame(&object) = &game;
         ASSERT_EQ(object.GetFreq(), 0);
 
         EXPECT_CALL(factory, AddProcessingItem(43));
         object.SetFreq(46);
         ASSERT_EQ(object.GetFreq(), 46);
-
-        EXPECT_CALL(factory, AddProcessingItem(84));
-        object.SetId(84);
-        ASSERT_EQ(object.GetId(), 84);
     }
     {
         MockIGame game;
@@ -159,9 +155,10 @@ TEST(MainObject, SettersAndGettersAndCreateImpl)
         EXPECT_CALL(factory, CreateImpl(QString("type"), 42))
             .WillOnce(Return(111));
 
-        IMainObject object(43);
-        object.SetGame(&game);
-        ASSERT_EQ(object.CreateImpl("type", 42), 111);
+        Object object;
+        kv::internal::GetObjectId(&object) = 43;
+        kv::internal::GetObjectGame(&object) = &game;
+        ASSERT_EQ(kv::internal::CreateImpl(&object, "type", 42), 111);
     }
 }
 
@@ -172,45 +169,11 @@ TEST(MainObject, Delete)
     EXPECT_CALL(game, GetFactory())
         .WillRepeatedly(ReturnRef(factory));
 
-    IMainObject object(43);
-    object.SetGame(&game);
+    Object object;
+    kv::internal::GetObjectId(&object) = 43;
+    kv::internal::GetObjectGame(&object) = &game;
 
     EXPECT_CALL(factory, DeleteLater(43))
         .WillOnce(Return());
     object.Delete();
 }
-
-TEST(MainObject, SoundAndMusic)
-{
-    MockIGame game;
-    IMainObject object(1111111);
-    object.SetGame(&game);
-    EXPECT_CALL(game, PlayMusic(QString("music"), 13.0f))
-        .WillOnce(Return());
-
-    object.PlayMusic("music", 13.0f);
-
-    MockIMapMaster map;
-    EXPECT_CALL(game, GetMap())
-        .WillRepeatedly(ReturnRef(map));
-    EXPECT_CALL(map, IsTileVisible(33))
-        .WillOnce(Return(false))
-        .WillOnce(Return(true));
-    EXPECT_CALL(game, AddSound(QString("sound")))
-        .WillOnce(Return());
-
-    object.PlaySoundIfVisible("sound1", 33);
-    object.PlaySoundIfVisible("sound", 33);
-}
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,38 +1,29 @@
-#include <string>
-#include <unordered_map>
-#include <vector>
+#pragma once
 
-#include <SFML/Audio.hpp>
+#include <memory>
 
-#include "core/Constheader.h"
-#include "core/Hashes.h"
+#include <QMediaPlayer>
+#include <QMediaPlaylist>
+#include <QSoundEffect>
+
+#include <QMap>
+#include <QVector>
 
 #ifdef PlaySound
 #undef PlaySound
 #endif // PlaySound
 
-class SoundManager
-{
-public:
-    void InitSound(sf::Sound* sound, const QString& name);
-    void LoadSound(const QString& name);
-private:
-    const sf::SoundBuffer* GetBuffer(const QString& name);
-    std::unordered_map<QString, sf::SoundBuffer*> holder_;
-};
-
-SoundManager& GetSoundManager();
-
 class SoundPlayer
 {
 public:
     SoundPlayer();
-    sf::Sound* PlaySound(const QString& name);
-    void PlayMusic(const QString& name, float volume = 100.0f);
+    void PlaySound(const QString& name, float volume = 15.0f);
+    void PlayMusic(const QString& name, int volume = 100);
     void StopMusic();
 private:
-    sf::Music music_;
-    std::vector<sf::Sound> sounds_;
-};
+    QMediaPlayer media_player_;
+    QMediaPlaylist playlist_;
 
-SoundPlayer& GetSoundPlayer();
+    using SoundPtr = std::shared_ptr<QSoundEffect>;
+    QMap<QString, QVector<SoundPtr>> sounds_;
+};

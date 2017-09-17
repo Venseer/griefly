@@ -7,7 +7,10 @@
 #include <QTextStream>
 #include <QUuid>
 
-#include "KVAbort.h"
+#include "KvAbort.h"
+
+namespace
+{
 
 QFile logs;
 QTextStream logstream;
@@ -50,15 +53,18 @@ void KvMessageHandler(QtMsgType type, const QMessageLogContext& context, const Q
         break;
     case QtFatalMsg:
         logstream << information << endl;
-        KvAbort();
+        kv::Abort(QString());
     }
 }
+
 void InstallMessageHandler()
 {
     qInstallMessageHandler(KvMessageHandler);
 }
 
-void InitializeLog()
+}
+
+void kv::InitializeLog()
 {
     const QString LOG_DIRECTORY = "debug_reports";
 
@@ -66,8 +72,7 @@ void InitializeLog()
     {
         if (!QDir().mkdir(LOG_DIRECTORY))
         {
-            qDebug() << "Unable to create directory:" << LOG_DIRECTORY;
-            KvAbort();
+            kv::Abort(QString("Unable to create directory: %1").arg(LOG_DIRECTORY));
         }
     }
 
@@ -81,11 +86,9 @@ void InitializeLog()
     logs.setFileName(filename);
     if (!logs.open(QIODevice::WriteOnly))
     {
-        qDebug() << logs.fileName() << " cannot be opened.";
-        KvAbort();
+        kv::Abort(QString("%1 cannot be opened.").arg(logs.fileName()));
     }
     logstream.setDevice(&logs);
 
     InstallMessageHandler();
 }
-

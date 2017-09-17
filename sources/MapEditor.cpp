@@ -10,7 +10,6 @@
 #include <fstream>
 
 #include "core/Constheader.h"
-#include "core/StreamWrapper.h"
 #include "core/Helpers.h"
 
 MapEditor::EditorEntry::EditorEntry()
@@ -189,7 +188,7 @@ void MapEditor::SaveMapgen(const QString& name)
     int size_y = editor_map_[0].size();
     int size_z = editor_map_[0][0].size();
 
-    FastSerializer data;
+    kv::FastSerializer data;
 
     data << size_x;
     data << size_y;
@@ -207,7 +206,7 @@ void MapEditor::SaveMapgen(const QString& name)
                     data << x;
                     data << y;
                     data << z;
-                    WrapWriteMessage(data, editor_map_[x][y][z].turf.variables);
+                    data << editor_map_[x][y][z].turf.variables;
                 }
                 auto& il = editor_map_[x][y][z].items;
                 for (auto it = il.begin(); it != il.end(); ++it)
@@ -216,7 +215,7 @@ void MapEditor::SaveMapgen(const QString& name)
                     data << x;
                     data << y;
                     data << z;
-                    WrapWriteMessage(data, it->variables);
+                    data << it->variables;
                 }
             }
         }
@@ -273,7 +272,7 @@ void MapEditor::LoadMapgen(const QString& name)
         raw_data.append(local);
     }
     raw_data = QByteArray::fromHex(raw_data);
-    FastDeserializer data(raw_data.data(), raw_data.size());
+    kv::FastDeserializer data(raw_data.data(), raw_data.size());
 
     int x;
     data >> x;
@@ -311,9 +310,7 @@ void MapEditor::LoadMapgen(const QString& name)
             ee = &AddItem(item_type, x, y, z);
         }
 
-        WrapReadMessage(data, ee->variables);
-
-        // TODO
+        data >> ee->variables;
         UpdateDirs(ee);
     }
 }
@@ -402,10 +399,10 @@ void MapEditor::UpdateDirs(MapEditor::EditorEntry* ee)
     QByteArray& data = ee->variables["direction_"];
     if (ee && data.size())
     {
-        FastDeserializer deserializer(data.data(), data.size());
-        int dir;
+        kv::FastDeserializer deserializer(data.data(), data.size());
+        Dir dir;
         deserializer >> dir;
-        int byond_dir = helpers::dir_to_byond(dir);
+        int byond_dir = helpers::DirToByond(dir);
 
         if (byond_dir < image_holder_[ee->item_type].size())
         {
@@ -571,7 +568,7 @@ void MapEditor::ClearMap()
     }
 }
 
-std::vector<MapEditor::EditorEntry>& MapEditor::GetEntriesFor(int posx, int posy, int posz)
+QVector<MapEditor::EditorEntry>& MapEditor::GetEntriesFor(int posx, int posy, int posz)
 {
     return editor_map_[posx][posy][posz].items;
 }

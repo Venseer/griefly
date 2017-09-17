@@ -1,9 +1,11 @@
 #include "Computers.h"
 
-Computer::Computer(quint32 id) : IOnMapObject(id)
+using namespace kv;
+
+Computer::Computer()
 {
     transparent = true;
-    SetPassable(D_ALL, Passable::AIR);
+    SetPassable(Dir::ALL, passable::AIR);
 
     SetSprite("icons/computer.dmi");
     SetState("securityb");

@@ -87,10 +87,10 @@ TEST(FramesetInfo, StreamOperators)
     frameset_info.SetAngle(84);
     frameset_info.SetShift(12, 13);
 
-    FastSerializer serialzier(1);
+    kv::FastSerializer serialzier(1);
     serialzier << frameset_info;
 
-    FastDeserializer deserializer(serialzier.GetData(), serialzier.GetIndex());
+    kv::FastDeserializer deserializer(serialzier.GetData(), serialzier.GetIndex());
 
     ViewInfo::FramesetInfo frameset_info2;
     deserializer >> frameset_info2;
@@ -101,9 +101,9 @@ TEST(FramesetInfo, StreamOperators)
     EXPECT_EQ(frameset_info2.GetShiftY(), 13);
 
     {
-        FastSerializer serializer(1);
+        kv::FastSerializer serializer(1);
         serializer << frameset_info;
-        FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
+        kv::FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
         ViewInfo::FramesetInfo frameset_info3;
         deserializer >> frameset_info3;
         EXPECT_TRUE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info, frameset_info3));
@@ -113,43 +113,53 @@ TEST(FramesetInfo, StreamOperators)
 TEST(FramesetInfo, Hash)
 {
     ViewInfo::FramesetInfo frameset_info;
-    ASSERT_EQ(hash(frameset_info), 2);
+    ASSERT_EQ(Hash(frameset_info), 2);
 
     frameset_info.SetSprite("sprite 1");
-    ASSERT_EQ(hash(frameset_info), 2014229692);
+    ASSERT_EQ(Hash(frameset_info), 2014229692);
 
     frameset_info.SetState("state 2");
-    ASSERT_EQ(hash(frameset_info), 230996800);
+    ASSERT_EQ(Hash(frameset_info), 230996800);
 
     frameset_info.SetAngle(84);
-    ASSERT_EQ(hash(frameset_info), 230996884);
+    ASSERT_EQ(Hash(frameset_info), 230996884);
 
     frameset_info.SetShift(0, 13);
-    ASSERT_EQ(hash(frameset_info), 230996897);
+    ASSERT_EQ(Hash(frameset_info), 230996897);
 
     frameset_info.SetShift(14, 13);
-    ASSERT_EQ(hash(frameset_info), 230996911);
+    ASSERT_EQ(Hash(frameset_info), 230996911);
 }
 
 TEST(ViewInfo, AngleAndBaseFrameset)
 {
     ViewInfo view_info;
-    ASSERT_EQ(view_info.GetAngle(), 0);
+    EXPECT_EQ(view_info.GetAngle(), 0);
+    EXPECT_EQ(view_info.GetTransparency(), MAX_TRANSPARENCY);
 
     view_info.SetSprite("windows better than linux");
-    ASSERT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
-    ASSERT_EQ(view_info.GetBaseFrameset().GetState(), "");
-    ASSERT_EQ(view_info.GetAngle(), 0);
+    EXPECT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
+    EXPECT_EQ(view_info.GetBaseFrameset().GetState(), "");
+    EXPECT_EQ(view_info.GetAngle(), 0);
+    EXPECT_EQ(view_info.GetTransparency(), MAX_TRANSPARENCY);
 
     view_info.SetState("lol jk");
-    ASSERT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
-    ASSERT_EQ(view_info.GetBaseFrameset().GetState(), "lol jk");
-    ASSERT_EQ(view_info.GetAngle(), 0);
+    EXPECT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
+    EXPECT_EQ(view_info.GetBaseFrameset().GetState(), "lol jk");
+    EXPECT_EQ(view_info.GetAngle(), 0);
+    EXPECT_EQ(view_info.GetTransparency(), MAX_TRANSPARENCY);
 
     view_info.SetAngle(33);
-    ASSERT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
-    ASSERT_EQ(view_info.GetBaseFrameset().GetState(), "lol jk");
-    ASSERT_EQ(view_info.GetAngle(), 33);
+    EXPECT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
+    EXPECT_EQ(view_info.GetBaseFrameset().GetState(), "lol jk");
+    EXPECT_EQ(view_info.GetAngle(), 33);
+    EXPECT_EQ(view_info.GetTransparency(), MAX_TRANSPARENCY);
+
+    view_info.SetTransparency(9876);
+    EXPECT_EQ(view_info.GetBaseFrameset().GetSprite(), "windows better than linux");
+    EXPECT_EQ(view_info.GetBaseFrameset().GetState(), "lol jk");
+    EXPECT_EQ(view_info.GetAngle(), 33);
+    EXPECT_EQ(view_info.GetTransparency(), 9876);
 }
 
 TEST(ViewInfo, OverlaysAndUnderlays)
@@ -210,73 +220,79 @@ TEST(ViewInfo, OverlaysAndUnderlays)
 TEST(ViewInfo, IsSameFramesets)
 {
     ViewInfo view_info;
-    ASSERT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info));
+    EXPECT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info));
 
     view_info.SetAngle(10);
+    view_info.SetTransparency(555);
     view_info.SetSprite("sprite");
     view_info.SetState("state");
     view_info.AddOverlay("1", "1");
     view_info.AddUnderlay("2", "2");
-    ASSERT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info));
+    EXPECT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info));
 
     ViewInfo view_info2;
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.SetAngle(11);
     view_info2.SetSprite("sprite");
     view_info2.SetState("state");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.SetAngle(10);
+    view_info2.SetTransparency(555);
     view_info2.SetSprite("sprite1");
     view_info2.SetState("state");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.SetAngle(10);
     view_info2.SetSprite("sprite");
     view_info2.SetState("state1");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.AddUnderlay("vvv", "wwww");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.RemoveUnderlays();
     view_info2.AddUnderlay("2", "2");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.SetAngle(10);
     view_info2.SetSprite("sprite");
     view_info2.SetState("state");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.AddOverlay("vvv", "wwww");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.RemoveOverlays();
     view_info2.AddOverlay("1", "1");
-    ASSERT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
+    view_info2.SetTransparency(554);
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+
+    view_info2.SetTransparency(555);
     view_info2.AddOverlay("111", "111");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.RemoveOverlays();
     view_info2.AddOverlay("1", "1");
     view_info2.AddUnderlay("2", "2");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.RemoveUnderlays();
     view_info2.AddUnderlay("2", "2");
     view_info2.SetAngle(88);
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.SetAngle(10);
     view_info2.SetState("spqr");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 
     view_info2.SetState("state");
     view_info2.RemoveUnderlays();
     view_info2.AddUnderlay("2fkds;a", "2fdjsl;kjf");
-    ASSERT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
 }
 
 TEST(ViewInfo, StreamOperators)
@@ -286,17 +302,19 @@ TEST(ViewInfo, StreamOperators)
     view_info.SetSprite("vhs");
     view_info.SetState("dead");
     view_info.SetAngle(11);
+    view_info.SetTransparency(8989);
     view_info.AddOverlay("something", "someone").SetShift(1, 10);
     view_info.AddUnderlay("tree", "weed");
 
-    FastSerializer serializer(1);
+    kv::FastSerializer serializer(1);
     serializer << view_info;
 
-    FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
+    kv::FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
 
     ViewInfo view_info2;
     deserializer >> view_info2;
     EXPECT_EQ(view_info2.GetAngle(), 11);
+    EXPECT_EQ(view_info2.GetTransparency(), 8989);
     EXPECT_EQ(view_info2.GetBaseFrameset().GetSprite(), "vhs");
     EXPECT_EQ(view_info2.GetBaseFrameset().GetState(), "dead");
 
@@ -318,26 +336,23 @@ TEST(ViewInfo, StreamOperators)
 TEST(ViewInfo, Hash)
 {
     ViewInfo view_info;
-    ASSERT_EQ(hash(view_info), 2);
+    EXPECT_EQ(Hash(view_info), 100002);
 
     view_info.SetAngle(10);
-    ASSERT_EQ(hash(view_info), 12);
+    EXPECT_EQ(Hash(view_info), 100012);
+
+    view_info.SetTransparency(1);
+    EXPECT_EQ(Hash(view_info), 13);
 
     view_info.SetSprite("sprite");
-    ASSERT_EQ(hash(view_info), 2514701247);
+    EXPECT_EQ(Hash(view_info), 2514701248);
 
     view_info.SetState("state");
-    ASSERT_EQ(hash(view_info), 227251334);
+    EXPECT_EQ(Hash(view_info), 227251335);
 
     view_info.AddOverlay("1", "1");
-    ASSERT_EQ(hash(view_info), 241341978);
+    EXPECT_EQ(Hash(view_info), 241341979);
 
     view_info.AddUnderlay("2", "2");
-    ASSERT_EQ(hash(view_info), 834067624);
+    EXPECT_EQ(Hash(view_info), 834067625);
 }
-
-
-
-
-
-

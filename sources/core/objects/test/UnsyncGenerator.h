@@ -1,19 +1,20 @@
 #pragma once
 
-#include "../MainObject.h"
+#include "../Object.h"
 
-class UnsyncGenerator: public IMainObject
+namespace kv
+{
+
+class UnsyncGenerator : public Object
 {
 public:
-    DECLARE_SAVED(UnsyncGenerator, IMainObject);
-    DECLARE_GET_TYPE_ITEM(UnsyncGenerator)
-    UnsyncGenerator(quint32 id);
+    DECLARE_SAVEABLE(UnsyncGenerator, Object);
+    REGISTER_CLASS_AS(UnsyncGenerator);
+    UnsyncGenerator();
     void PerformUnsync();
 private:
-    QString KV_SAVEBLE(unsync_string_);
-
-    void SetThisAsUnsyncGenerator();
-    KV_ON_LOAD_CALL(SetThisAsUnsyncGenerator);
+    QString KV_SAVEABLE(unsync_string_);
 };
-ADD_TO_TYPELIST(UnsyncGenerator);
+END_DECLARE(UnsyncGenerator);
 
+}

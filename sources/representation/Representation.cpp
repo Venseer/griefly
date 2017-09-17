@@ -1,5 +1,7 @@
 #include "Representation.h"
 
+#include <limits>
+
 #include "core/Constheader.h"
 #include "core/Helpers.h"
 
@@ -8,9 +10,7 @@
 #include "net/MagicStrings.h"
 #include "Params.h"
 
-#include "Text.h"
 #include "SpriteHolder.h"
-#include "SoundLoader.h"
 #include "ImageLoader.h"
 
 #include "qt/qtopengl.h"
@@ -18,9 +18,21 @@
 #include <QMutexLocker>
 #include <QCoreApplication>
 
-Representation::Representation()
+namespace
 {
-    current_frame_ = &first_data_;
+
+const int MAX_LEVEL = 20;
+
+}
+
+using Music = kv::FrameData::Music;
+using ChatMessage = kv::FrameData::ChatMessage;
+using TextEntry = kv::FrameData::TextEntry;
+
+Representation::Representation(QObject* parent)
+    : QObject(parent)
+{
+    old_frame_ = &first_data_;
     new_frame_ = &second_data_;
     is_updated_ = false;
     current_frame_id_ = 1;
@@ -46,7 +58,6 @@ Representation::Representation()
 
     qDebug() << "Begin load resources";
     LoadImages();
-    LoadSounds();
 }
 
 void Representation::ResetPerformance()
@@ -54,36 +65,17 @@ void Representation::ResetPerformance()
     performance_.mutex_ns = 0;
 }
 
-void Representation::AddToNewFrame(const Representation::InterfaceUnit &unit)
-{
-    new_frame_->units.push_back(unit);
-}
-
-void Representation::AddToNewFrame(const Representation::Entity& ent)
-{
-    new_frame_->entities.push_back(ent);
-}
-
-void Representation::AddToNewFrame(const Sound &sound)
-{
-    new_frame_->sounds.push_back(sound.name);
-}
-
-void Representation::SetCameraForFrame(int pos_x, int pos_y)
-{
-    new_frame_->camera_pos_x = pos_x;
-    new_frame_->camera_pos_y = pos_y;
-}
-
 void Representation::Swap()
 {
     QMutexLocker lock(&mutex_);
 
-    std::swap(current_frame_, new_frame_);
+    std::swap(old_frame_, new_frame_);
     is_updated_ = true;
     new_frame_->entities.clear();
     new_frame_->sounds.clear();
     new_frame_->units.clear();
+    new_frame_->messages.clear();
+    new_frame_->texts.clear();
 }
 
 const int SUPPORTED_KEYS_SIZE = 8;
@@ -187,29 +179,16 @@ void Representation::HandleInput()
     QCoreApplication::processEvents(QEventLoop::AllEvents, 40);
 }
 
-Representation::Entity::Entity()
+quint32 Representation::GetUniqueIdForNewFrame(quint32 base_id, quint32 number)
 {
-    id = 0;
-    pos_x = 0;
-    pos_y = 0;
-    vlevel = 0;
-    dir = D_DOWN;
-}
-
-Representation::InterfaceUnit::InterfaceUnit()
-{
-    pixel_x = 0;
-    pixel_y = 0;
-    shift = 0;
+    // TODO: There should be better way to do it
+    const quint32 MAX_NUMBER = 32;
+    const quint32 MAX_BASE_ID = std::numeric_limits<quint32>::max() / MAX_NUMBER;
+    return base_id + MAX_BASE_ID * number;
 }
 
 void Representation::Process()
 {
-    performance_.timer.start();
-    QMutexLocker lock(&mutex_);
-    performance_.mutex_ns
-        = qMax(performance_.mutex_ns, performance_.timer.nsecsElapsed());
-
     SynchronizeViews();
 
     const int AUTOPLAY_INTERVAL = 10;
@@ -266,7 +245,7 @@ void Representation::Click(int x, int y)
     //qDebug() << "S_X: " << s_x << ", S_Y: " <<  s_y;
     //qDebug() << "X: " << x << ", Y: " <<  y;
 
-    auto& units = current_frame_->units;
+    auto& units = current_frame_.units;
 
 
     for (unsigned int i = 0; i < units.size(); ++i)
@@ -279,19 +258,23 @@ void Representation::Click(int x, int y)
         }
     }
 
-    auto& ents = current_frame_->entities;
+    auto& ents = current_frame_.entities;
 
     int id_to_send = -1;
 
     for (auto it = ents.rbegin(); it != ents.rend(); ++it)
     {
+        if (it->click_id == 0)
+        {
+            continue;
+        }
         if (it->vlevel >= MAX_LEVEL)
         {
-            int bdir = helpers::dir_to_byond(it->dir);
+            int bdir = helpers::DirToByond(it->dir);
             if (!views_[it->id].view.IsTransp(s_x, s_y, bdir))
             {
                 //qDebug() << "Clicked " << it->id;
-                id_to_send = it->id;
+                id_to_send = it->click_id;
                 break;
             }
         }
@@ -301,15 +284,18 @@ void Representation::Click(int x, int y)
     {
         for (auto it = ents.rbegin(); it != ents.rend(); ++it)
         {
+            if (it->click_id == 0)
+            {
+                continue;
+            }
             if (it->vlevel != vlevel)
             {
                 continue;
             }
-            int bdir = helpers::dir_to_byond(it->dir);
+            int bdir = helpers::DirToByond(it->dir);
             if (!views_[it->id].view.IsTransp(s_x, s_y, bdir))
             {
-                //qDebug() << "Clicked " << it->id;
-                id_to_send = it->id;
+                id_to_send = it->click_id;
                 break;
             }
         }
@@ -331,48 +317,87 @@ void Representation::Click(int x, int y)
         }
         else if (keys_state_[Qt::Key_R])
         {
+            qDebug() << "R key";
             message = Click::LEFT_R;
         }
 
-        Message2 msg = Network2::MakeClickMessage(id_to_send, message);
+        Message msg = Network2::MakeClickMessage(id_to_send, message);
         Network2::GetInstance().SendMsg(msg);
     }
 }
 
 void Representation::SynchronizeViews()
 {
-    if (is_updated_)
+    Music old_music = current_frame_.music;
     {
-        camera_.SetPos(current_frame_->camera_pos_x, current_frame_->camera_pos_y);
-
-        for (auto it = current_frame_->entities.begin(); it != current_frame_->entities.end(); ++it)
+        performance_.timer.start();
+        QMutexLocker lock(&mutex_);
+        if (is_updated_)
         {
-            auto& view_with_frame_id = views_[it->id];
-            view_with_frame_id.view.LoadViewInfo(it->view);
-            if (view_with_frame_id.frame_id != current_frame_id_)
-            {
-                view_with_frame_id.view.SetX(it->pos_x * 32);
-                view_with_frame_id.view.SetY(it->pos_y * 32);
-            }
-            view_with_frame_id.frame_id = current_frame_id_ + 1;
-        } 
-
-        interface_views_.resize(current_frame_->units.size());
-        for (int i = 0; i < static_cast<int>(interface_views_.size()); ++i)
-        {
-            interface_views_[i].LoadViewInfo(current_frame_->units[i].view);
-            interface_views_[i].SetX(current_frame_->units[i].pixel_x);
-            interface_views_[i].SetY(current_frame_->units[i].pixel_y);
+            current_frame_ = *old_frame_;
         }
-
-        for (auto it = current_frame_->sounds.begin(); it != current_frame_->sounds.end(); ++it)
+        performance_.mutex_ns
+            = qMax(performance_.mutex_ns, performance_.timer.nsecsElapsed());
+        if (!is_updated_)
         {
-            GetSoundPlayer().PlaySound(*it);
+            return;
         }
-
-        ++current_frame_id_;
-        is_updated_ = false;
     }
+
+    camera_.SetPos(current_frame_.camera_pos_x, current_frame_.camera_pos_y);
+
+    for (auto it = current_frame_.entities.begin(); it != current_frame_.entities.end(); ++it)
+    {
+        auto& view_with_frame_id = views_[it->id];
+        view_with_frame_id.view.LoadViewInfo(it->view);
+        if (view_with_frame_id.frame_id != current_frame_id_)
+        {
+            view_with_frame_id.view.SetX(it->pos_x * 32);
+            view_with_frame_id.view.SetY(it->pos_y * 32);
+        }
+        view_with_frame_id.frame_id = current_frame_id_ + 1;
+    }
+
+    interface_views_.resize(current_frame_.units.size());
+    for (int i = 0; i < static_cast<int>(interface_views_.size()); ++i)
+    {
+        interface_views_[i].LoadViewInfo(current_frame_.units[i].view);
+        interface_views_[i].SetX(current_frame_.units[i].pixel_x);
+        interface_views_[i].SetY(current_frame_.units[i].pixel_y);
+    }
+
+    for (auto it = current_frame_.sounds.begin(); it != current_frame_.sounds.end(); ++it)
+    {
+        GetSoundPlayer().PlaySound(it->name);
+    }
+
+    Music music = current_frame_.music;
+
+    if (old_music.name != music.name)
+    {
+        if (music.name != "")
+        {
+            GetSoundPlayer().PlayMusic(music.name, music.volume);
+        }
+        else
+        {
+            GetSoundPlayer().StopMusic();
+        }
+    }
+
+    for (const ChatMessage& message : qAsConst(current_frame_.messages))
+    {
+        emit chatMessage(message.html);
+    }
+    emit clearSystemTexts();
+    for (const TextEntry& text : qAsConst(current_frame_.texts))
+    {
+        emit systemText(text.tab, text.text);
+    }
+    emit removeEmptyTabs();
+
+    ++current_frame_id_;
+    is_updated_ = false;
 }
 
 int get_pixel_speed_for_distance(int distance)
@@ -399,7 +424,7 @@ int get_pixel_speed_for_distance(int distance)
 
 void Representation::PerformPixelMovement()
 {
-    for (auto it = current_frame_->entities.begin(); it != current_frame_->entities.end(); ++it)
+    for (auto it = current_frame_.entities.begin(); it != current_frame_.entities.end(); ++it)
     {
         int pixel_x = it->pos_x * 32;
         int pixel_y = it->pos_y * 32;
@@ -426,25 +451,25 @@ void Representation::Draw()
 {
     for (int vlevel = 0; vlevel < MAX_LEVEL; ++vlevel)
     {
-        for (auto it = current_frame_->entities.begin(); it != current_frame_->entities.end(); ++it)
+        for (auto it = current_frame_.entities.begin(); it != current_frame_.entities.end(); ++it)
         {
             if (it->vlevel == vlevel)
             {
                 views_[it->id].view.Draw(
                     camera_.GetFullShiftX(),
                     camera_.GetFullShiftY(),
-                    helpers::dir_to_byond(it->dir));
+                    helpers::DirToByond(it->dir));
             }
         }
     }
-    for (auto it = current_frame_->entities.begin(); it != current_frame_->entities.end(); ++it)
+    for (auto it = current_frame_.entities.begin(); it != current_frame_.entities.end(); ++it)
     {
         if (it->vlevel >= MAX_LEVEL)
         {
             views_[it->id].view.Draw(
                 camera_.GetFullShiftX(),
                 camera_.GetFullShiftY(),
-                helpers::dir_to_byond(it->dir));
+                helpers::DirToByond(it->dir));
         }
     }
 }
@@ -453,7 +478,7 @@ void Representation::DrawInterface()
 {
     for (int i = 0; i < static_cast<int>(interface_views_.size()); ++i)
     {
-        interface_views_[i].Draw(0, 0, current_frame_->units[i].shift);
+        interface_views_[i].Draw(0, 0, current_frame_.units[i].shift);
     }
 }
 
@@ -496,21 +521,4 @@ int Representation::Camera::GetFullShiftX()
 int Representation::Camera::GetFullShiftY()
 {
     return -1 * (pos_y * 32 + pixel_shift_y_) + (AREA_SIZE_H / 2) - 16;
-}
-
-Representation* g_r = nullptr;
-Representation& GetRepresentation()
-{
-    return *g_r;
-}
-
-void SetRepresentation(Representation* new_g_r)
-{
-    g_r = new_g_r;
-}
-
-
-bool IsRepresentationValid()
-{
-    return g_r != nullptr;
 }

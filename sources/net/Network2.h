@@ -16,19 +16,19 @@
 
 #include "NetworkMessagesTypes.h"
 
-const int MAX_WAIT_ON_QUEUE = 8;
+const int MAX_WAIT_ON_QUEUE = 90;
 
-struct Message2
+struct Message
 {
     qint32 type;
     QByteArray json;
 };
 
-Q_DECLARE_METATYPE(Message2)
+Q_DECLARE_METATYPE(Message)
 
 class Network2;
 
-class SocketHandler: public QObject
+class SocketHandler : public QObject
 {
     Q_OBJECT
 public:
@@ -39,17 +39,17 @@ public slots:
     void tryConnect(QString host, int port, QString login, QString password);
     void socketConnected();
 
-    void sendMessage(Message2 message);
+    void sendMessage(Message message);
     void disconnectSocket();
     void errorSocket(QAbstractSocket::SocketError error);
-    void handleFirstMessage(Message2 message);
+    void handleFirstMessage(Message message);
     void handleNewData();
 signals:
-    void firstMessage(Message2 message);
+    void firstMessage(Message message);
     void connectionEnd(QString reason);
     void readyToStart(int your_id, QString map);
 private:
-    void HandleSuccessConnection(Message2 m);
+    void HandleSuccessConnection(Message m);
 
     QTcpSocket socket_;
 
@@ -88,19 +88,19 @@ private:
     Network2* network_;
 };
 
-class Network2: public QObject
+class Network2 : public QObject
 {
     Q_OBJECT
 public:
     friend class SocketHandler;
 
-    static QJsonObject ParseJson(Message2 message);
+    static QJsonObject ParseJson(Message message);
 
     static bool IsKey(const QJsonObject& json, const QString& key);
     static quint32 ExtractObjId(const QJsonObject& json);
     static QString ExtractAction(const QJsonObject& json);
 
-    static Message2 MakeClickMessage(int object_id, QString click_type);
+    static Message MakeClickMessage(int object_id, QString click_type);
 
     static Network2& GetInstance();
 
@@ -108,14 +108,15 @@ public:
 
     void TryConnect(QString host, int port, QString login, QString password);
 
-    void SendMsg(Message2 message);
+    void SendMsg(Message message);
     void SendOrdinaryMessage(QString text);
     void SendPing(QString ping_id);
 
     void Disconnect();
 
     bool IsMessageAvailable();
-    Message2 PopMessage();
+    void WaitForMessageAvailable();
+    Message PopMessage();
 
     QByteArray GetMapData();
 public slots:
@@ -125,7 +126,7 @@ signals:
     void mapSendingStarted();
     void mapSendingFinished();
     void connectRequested(QString host, int port, QString login, QString password);
-    void sendMessage(Message2 message);
+    void sendMessage(Message message);
     void disconnectRequested();
     void connectionSuccess(int your_id, QString map);
     void connectionFailed(QString reason);
@@ -140,12 +141,12 @@ private:
     int your_id_;
     QString map_url_;
 
-    void PushMessage(Message2 message);
+    void PushMessage(Message message);
 
     QMutex queue_mutex_;
     QWaitCondition queue_wait_;
 
-    QQueue<Message2> received_messages_;
+    QQueue<Message> received_messages_;
 
     Network2();
 

@@ -2,7 +2,9 @@
 
 #include "../Tile.h"
 
-PressureIndicator::PressureIndicator(quint32 id) : IOnMapObject(id)
+using namespace kv;
+
+PressureIndicator::PressureIndicator()
 {
     v_level = 11;
     name = "Pressure indicator";
@@ -14,14 +16,14 @@ void PressureIndicator::Process()
 {
     if (IdPtr<CubeTile> tile = GetRoot())
     {
-        AtmosHolder* holder = tile->GetAtmosHolder();
+        atmos::AtmosHolder* holder = tile->GetAtmosHolder();
         SetNumber(holder->GetPressure() / 1000);
     }
 }
 
 void PressureIndicator::AfterWorldCreation()
 {
-    IOnMapObject::AfterWorldCreation();
+    MaterialObject::AfterWorldCreation();
     SetFreq(1);
 }
 

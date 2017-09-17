@@ -1,18 +1,22 @@
 #pragma once
 
-#include "OnMapObject.h"
+#include "MaterialObject.h"
 
-class WallSign: public IOnMapObject
+namespace kv
+{
+
+class WallSign : public MaterialObject
 {
 public:
-    DECLARE_SAVED(WallSign, IOnMapObject);
-    DECLARE_GET_TYPE_ITEM(WallSign);
-    WallSign(quint32 id);
+    DECLARE_SAVEABLE(WallSign, MaterialObject);
+    REGISTER_CLASS_AS(WallSign);
+    WallSign();
     virtual void AfterWorldCreation() override;
 
     virtual void AttackBy(IdPtr<Item> item) override;
 protected:
-    QString KV_SAVEBLE(sign_type_);
+    QString KV_SAVEABLE(sign_type_);
 };
-ADD_TO_TYPELIST(WallSign);
+END_DECLARE(WallSign);
 
+}

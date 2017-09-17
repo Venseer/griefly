@@ -1,9 +1,11 @@
 #include "Sign.h"
 
-WallSign::WallSign(quint32 id) : IOnMapObject(id)
+using namespace kv;
+
+WallSign::WallSign()
 {
     transparent = true;
-    SetPassable(D_ALL, Passable::FULL);
+    SetPassable(Dir::ALL, passable::FULL);
     v_level = 6;
 
     SetSprite("icons/decals.dmi");
@@ -16,7 +18,7 @@ WallSign::WallSign(quint32 id) : IOnMapObject(id)
 
 void WallSign::AfterWorldCreation()
 {
-    IOnMapObject::AfterWorldCreation();
+    MaterialObject::AfterWorldCreation();
     SetState(sign_type_);
 }
 

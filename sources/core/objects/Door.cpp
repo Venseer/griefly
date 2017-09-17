@@ -2,17 +2,19 @@
 
 #include "representation/Sound.h"
 
-#include "Movable.h"
-#include "Mob.h"
-#include "Item.h"
-#include "Weldingtool.h"
+#include "movable/Movable.h"
+#include "mobs/Mob.h"
+#include "movable/items/Item.h"
+#include "movable/items/Weldingtool.h"
 
 #include "test/RemoteDoorOpener.h"
 
-Door::Door(quint32 id) : IOnMapObject(id)
+using namespace kv;
+
+Door::Door()
 {
     transparent = true;
-    SetPassable(D_ALL, Passable::EMPTY);
+    SetPassable(Dir::ALL, passable::EMPTY);
 
     v_level = 10;
 
@@ -31,9 +33,9 @@ void Door::Open()
         return;
     }
     SetState("door_opening");
-    PlaySoundIfVisible("airlock.ogg", owner.Id());
+    PlaySoundIfVisible("airlock.wav");
     door_state_ = OPENING;
-    last_tick_ = MAIN_TICK;
+    last_tick_ = GetGameTick();
     SetFreq(1);
 }
 
@@ -44,31 +46,31 @@ void Door::Close()
         return;
     }
     SetState("door_closing");
-    PlaySoundIfVisible("airlock.ogg", owner.Id());
-    SetPassable(D_ALL, Passable::EMPTY);
+    PlaySoundIfVisible("airlock.wav");
+    SetPassable(Dir::ALL, passable::EMPTY);
     door_state_ = CLOSING;
-    last_tick_ = MAIN_TICK;
+    last_tick_ = GetGameTick();
 }
 
 void Door::Process()
 {
     if (IsState(OPENING))
     {
-        if (MAIN_TICK - last_tick_ > 11)
+        if (GetGameTick() - last_tick_ > 11)
         {
             door_state_ = OPEN;
-            SetPassable(D_ALL, Passable::FULL);
-            last_tick_ = MAIN_TICK;
+            SetPassable(Dir::ALL, passable::FULL);
+            last_tick_ = GetGameTick();
             SetState("door_open");
         }
         return;
     }
     if (IsState(CLOSING))
     {
-        if (MAIN_TICK - last_tick_ > 11)
+        if (GetGameTick() - last_tick_ > 11)
         {
             door_state_ = CLOSED;
-            last_tick_ = MAIN_TICK;
+            last_tick_ = GetGameTick();
             SetState("door_closed");
             SetFreq(0);
         }
@@ -76,16 +78,16 @@ void Door::Process()
     }
     if (IsState(OPEN))
     {
-        if (MAIN_TICK - last_tick_ > 50)
+        if (GetGameTick() - last_tick_ > 50)
         {
             Close();
         }
     }
 }
 
-void Door::Bump(IdPtr<IMovable> item)
+void Door::Bump(IdPtr<Movable> item)
 {
-    if (IdPtr<IMob> mob = item)
+    if (IdPtr<Mob> mob = item)
     {
         if (IsState(CLOSED))
         {
@@ -113,7 +115,7 @@ void Door::Weld()
         GetView()->AddOverlay("icons/Doorglass.dmi", "welded");
         door_state_ = WELDED;
     }
-    PlaySoundIfVisible("Welder.ogg", owner.Id());
+    PlaySoundIfVisible("Welder.wav");
 }
 
 void Door::AttackBy(IdPtr<Item> item)
@@ -143,13 +145,13 @@ void Door::AttackBy(IdPtr<Item> item)
     }
 }
 
-SecurityDoor::SecurityDoor(quint32 id) : Door(id)
+SecurityDoor::SecurityDoor()
 {
     SetSprite("icons/Doorsecglass.dmi");
 }
 
 
-NontransparentDoor::NontransparentDoor(quint32 id) : Door(id)
+NontransparentDoor::NontransparentDoor()
 {
     SetSprite("icons/Doorsec.dmi");
     transparent = false;
@@ -175,17 +177,17 @@ void NontransparentDoor::Close()
     Door::Close();
 }
 
-ExternalDoor::ExternalDoor(quint32 id) : NontransparentDoor(id)
+ExternalDoor::ExternalDoor()
 {
     SetSprite("icons/Doorext.dmi");
 }
 
-MaintenanceDoor::MaintenanceDoor(quint32 id) : NontransparentDoor(id)
+MaintenanceDoor::MaintenanceDoor()
 {
     SetSprite("icons/Doormaint.dmi");
 }
 
-GlassDoor::GlassDoor(quint32 id) : IMovable(id)
+GlassDoor::GlassDoor()
 {
     transparent = true;
 
@@ -205,9 +207,9 @@ GlassDoor::GlassDoor(quint32 id) : IMovable(id)
 
 void GlassDoor::AfterWorldCreation()
 {
-    IMovable::AfterWorldCreation();
+    Movable::AfterWorldCreation();
 
-    SetPassable(GetDir(), Passable::EMPTY);
+    SetPassable(GetDir(), passable::EMPTY);
     SetState(door_prefix_);
 }
 
@@ -218,9 +220,9 @@ void GlassDoor::Open()
         return;
     }
     SetState(door_prefix_ + "opening");
-    PlaySoundIfVisible("windowdoor.ogg", owner.Id());
+    PlaySoundIfVisible("windowdoor.wav");
     door_state_ = OPENING;
-    last_tick_ = MAIN_TICK;
+    last_tick_ = GetGameTick();
     SetFreq(1);
 }
 
@@ -231,31 +233,31 @@ void GlassDoor::Close()
         return;
     }
     SetState(door_prefix_ + "closing");
-    PlaySoundIfVisible("windowdoor.ogg", owner.Id());
-    SetPassable(GetDir(), Passable::EMPTY);
+    PlaySoundIfVisible("windowdoor.wav");
+    SetPassable(GetDir(), passable::EMPTY);
     door_state_ = CLOSING;
-    last_tick_ = MAIN_TICK;
+    last_tick_ = GetGameTick();
 }
 
 void GlassDoor::Process()
 {
     if (IsState(OPENING))
     {
-        if (MAIN_TICK - last_tick_ > 9)
+        if (GetGameTick() - last_tick_ > 9)
         {
             door_state_ = OPEN;
-            SetPassable(GetDir(), Passable::FULL);
-            last_tick_ = MAIN_TICK;
+            SetPassable(GetDir(), passable::FULL);
+            last_tick_ = GetGameTick();
             SetState(door_prefix_ + "open");
         }
         return;
     }
     if (IsState(CLOSING))
     {
-        if (MAIN_TICK - last_tick_ > 9)
+        if (GetGameTick() - last_tick_ > 9)
         {
             door_state_ = CLOSED;
-            last_tick_ = MAIN_TICK;
+            last_tick_ = GetGameTick();
             SetState(door_prefix_);
             SetFreq(0);
         }
@@ -263,16 +265,16 @@ void GlassDoor::Process()
     }
     if (IsState(OPEN))
     {
-        if (MAIN_TICK - last_tick_ > 50)
+        if (GetGameTick() - last_tick_ > 50)
         {
             Close();
         }
     }
 }
 
-void GlassDoor::Bump(IdPtr<IMovable> item)
+void GlassDoor::Bump(IdPtr<Movable> item)
 {
-    if (IdPtr<IMob> mob = item)
+    if (IdPtr<Mob> mob = item)
     {
         if (IsState(CLOSED))
         {

@@ -1,28 +1,29 @@
 #include <gtest/gtest.h>
 
-#include "core/SyncRandom.h"
+#include "core/SynchronizedRandom.h"
 
-TEST(SyncRandom, Basics)
+using namespace kv;
+
+TEST(SynchronizedRandom, Basics)
 {
-    SyncRandom random;
-    random.SetRand(42, 33033);
-    ASSERT_EQ(random.GetSeed(), 42);
-    ASSERT_EQ(random.GetCallsCounter(), 33033);
-    ASSERT_EQ(random.GetRand(), 2525021);
-    ASSERT_EQ(random.GetCallsCounter(), 33034);
-    ASSERT_EQ(random.GetRand(), 1242097);
-    ASSERT_EQ(random.GetCallsCounter(), 33035);
-}
+    SynchronizedRandom random;
 
-TEST(SyncRandom, RandomShuffle)
-{
-    SyncRandom random;
-    random.SetRand(1337, 432432);
-
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < 16; ++i)
     {
-        int val = random.RandomShuffle(14);
-        ASSERT_LT(val, 14);
-        ASSERT_GE(val, 0);
+        random.SetParams(42, 33033);
+        EXPECT_EQ(random.GetSeed(), 42);
+        EXPECT_EQ(random.GetCallsCounter(), 33033);
+        EXPECT_EQ(random.Generate(), 2525021);
+        EXPECT_EQ(random.GetCallsCounter(), 33034);
+        EXPECT_EQ(random.Generate(), 1242097);
+        EXPECT_EQ(random.GetCallsCounter(), 33035);
     }
+
+    random.SetParams(100, 1);
+    EXPECT_EQ(random.GetSeed(), 100);
+    EXPECT_EQ(random.GetCallsCounter(), 1);
+    EXPECT_EQ(random.Generate(), 4999187);
+    EXPECT_EQ(random.GetCallsCounter(), 2);
+    EXPECT_EQ(random.Generate(), 4098804);
+    EXPECT_EQ(random.GetCallsCounter(), 3);
 }

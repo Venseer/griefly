@@ -1,39 +1,38 @@
 #include "ViewInfo.h"
 
-#include "core/StreamWrapper.h"
-
-FastSerializer& operator<<(FastSerializer& file, ViewInfo& view_info)
+kv::FastSerializer& operator<<(kv::FastSerializer& file, const ViewInfo& view_info)
 {
-    WrapWriteMessage(file, view_info.base_frameset_);
+    file << view_info.base_frameset_;
 
     file << static_cast<quint32>(view_info.underlays_.size());
     for (auto it = view_info.underlays_.begin(); it != view_info.underlays_.end(); ++it)
     {
-            WrapWriteMessage(file, *it);
+        file << *it;
     }
 
     file << static_cast<quint32>(view_info.overlays_.size());
     for (auto it = view_info.overlays_.begin(); it != view_info.overlays_.end(); ++it)
     {
-            WrapWriteMessage(file, *it);
+        file << *it;
     }
 
     file << view_info.angle_;
+    file << view_info.transparency_;
 
     return file;
 }
-FastDeserializer& operator>>(FastDeserializer& file, ViewInfo& view_info)
+kv::FastDeserializer& operator>>(kv::FastDeserializer& file, ViewInfo& view_info)
 {
-    WrapReadMessage(file, view_info.base_frameset_);
+    file >> view_info.base_frameset_;
 
     quint32 u_size;
     file >> u_size;
     view_info.underlays_.resize(u_size);
     for (quint32 i = 0; i < u_size; ++i)
     {
-        ViewInfo::FramesetInfo f;
-        WrapReadMessage(file, f);
-        view_info.underlays_[i] = f;
+        ViewInfo::FramesetInfo frameset;
+        file >> frameset;
+        view_info.underlays_[i] = frameset;
     }
 
     quint32 o_size;
@@ -41,29 +40,31 @@ FastDeserializer& operator>>(FastDeserializer& file, ViewInfo& view_info)
     view_info.overlays_.resize(o_size);
     for (quint32 i = 0; i < o_size; ++i)
     {
-        ViewInfo::FramesetInfo f;
-        WrapReadMessage(file, f);
-        view_info.overlays_[i] = f;
+        ViewInfo::FramesetInfo frameset;
+        file >> frameset;
+        view_info.overlays_[i] = frameset;
     }
 
     file >> view_info.angle_;
+    file >> view_info.transparency_;
 
     return file;
 }
 
-FastSerializer& operator<<(FastSerializer& file, ViewInfo::FramesetInfo& frameset_info)
+kv::FastSerializer& operator<<(kv::FastSerializer& file, const ViewInfo::FramesetInfo& frameset_info)
 {
-    WrapWriteMessage(file, frameset_info.sprite_name_);
-    WrapWriteMessage(file, frameset_info.state_);
+    file << frameset_info.sprite_name_;
+    file << frameset_info.state_;
     file << frameset_info.angle_;
     file << frameset_info.shift_x_;
     file << frameset_info.shift_y_;
     return file;
 }
-FastDeserializer& operator>>(FastDeserializer& file, ViewInfo::FramesetInfo& frameset_info)
+
+kv::FastDeserializer& operator>>(kv::FastDeserializer& file, ViewInfo::FramesetInfo& frameset_info)
 {
-    WrapReadMessage(file, frameset_info.sprite_name_);
-    WrapReadMessage(file, frameset_info.state_);
+    file >> frameset_info.sprite_name_;
+    file >> frameset_info.state_;
     file >> frameset_info.angle_;
     file >> frameset_info.shift_x_;
     file >> frameset_info.shift_y_;
@@ -143,6 +144,11 @@ bool ViewInfo::IsSameFramesets(const ViewInfo &left, const ViewInfo &right)
         return false;
     }
 
+    if (left.transparency_ != right.transparency_)
+    {
+        return false;
+    }
+
     if (!FramesetInfo::IsSameSprites(left.base_frameset_, right.base_frameset_))
     {
         return false;
@@ -168,11 +174,17 @@ bool ViewInfo::IsSameFramesets(const ViewInfo &left, const ViewInfo &right)
 ViewInfo::ViewInfo()
 {
     angle_ = 0;
+    transparency_ = MAX_TRANSPARENCY;
 }
 
 void ViewInfo::SetAngle(int angle)
 {
     angle_ = angle;
+}
+
+void ViewInfo::SetTransparency(int transparency)
+{
+    transparency_ = transparency;
 }
 
 ViewInfo::FramesetInfo& ViewInfo::AddOverlay(

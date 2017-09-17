@@ -3,11 +3,14 @@
 #include <QVector>
 #include <QBitArray>
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
 #define __forceinline __attribute__((always_inline)) inline
 #endif
 
-class IMainObject;
+namespace kv
+{
+    class Object;
+}
 
 extern QVector<QBitArray>* cast_table;
 
@@ -21,7 +24,7 @@ void InitCastTable();
 template<typename Typeto>
 inline bool FastIsType(int typefrom)
 {
-    return FastIsType(Typeto::RT_ITEM_S(), typefrom);
+    return FastIsType(Typeto::GetTypeIndexStatic(), typefrom);
 }
 
 template<typename Typeto, typename TypeObjectFrom>
@@ -31,9 +34,9 @@ inline Typeto* CastTo(TypeObjectFrom* ptr)
     {
         return nullptr;
     }
-    if (FastIsType<Typeto>(ptr->RT_ITEM()))
+    if (FastIsType<Typeto>(ptr->GetTypeIndex()))
     {
-        return static_cast<Typeto*>(static_cast<IMainObject*>(ptr));
+        return static_cast<Typeto*>(static_cast<kv::Object*>(ptr));
     }
     return nullptr;
 }

@@ -19,6 +19,8 @@ static_assert(
     sizeof(bool) == 1,
     "Unsupported platform, sizeof(bool) should be 1!");
 
+using namespace kv;
+
 FastSerializer::FastSerializer(int size)
     : index_(0)
 {
@@ -30,7 +32,7 @@ FastSerializer::~FastSerializer()
     // Nothing
 }
 
-QString Humanize(FastDeserializer *deserializer)
+QString kv::Humanize(FastDeserializer *deserializer)
 {
     QString retval;
     QTextStream stream(&retval);
@@ -59,7 +61,7 @@ QString Humanize(FastDeserializer *deserializer)
         {
             QString value;
             *deserializer >> value;
-            stream << value.replace(' ', "$");
+            stream << value.replace('$', "\\$").replace(' ', "$");
         }
         else if (type == FastSerializer::BYTEARRAY_TYPE)
         {
@@ -79,8 +81,7 @@ QString Humanize(FastDeserializer *deserializer)
         }
         else
         {
-            qDebug() << "Unknown type: " << type;
-            KvAbort();
+            kv::Abort(QString("Unknown type: %1").arg(type));
         }
         stream << " ";
     }

@@ -1,19 +1,20 @@
 #include "ObjectFactory.h"
 
-#include "KVAbort.h"
+#include "KvAbort.h"
 
-#include "objects/MainObject.h"
-#include "objects/OnMapObject.h"
+#include "objects/Object.h"
+#include "objects/MaterialObject.h"
+#include "objects/PhysicsEngine.h"
 #include "Game.h"
 #include "Map.h"
-#include "SyncRandom.h"
+#include "SynchronizedRandom.h"
 #include "net/MagicStrings.h"
 #include "net/NetworkMessagesTypes.h"
 #include "AutogenMetadata.h"
 
 #include "MapEditor.h"
 
-ObjectFactory::ObjectFactory(IGame* game)
+ObjectFactory::ObjectFactory(GameInterface* game)
 {
     objects_table_.resize(100);
     id_ = 1;
@@ -34,7 +35,7 @@ ObjectFactory::~ObjectFactory()
     }
 }
 
-std::vector<ObjectInfo>& ObjectFactory::GetIdTable()
+QVector<ObjectInfo>& ObjectFactory::GetIdTable()
 {
     return objects_table_;
 }
@@ -62,7 +63,7 @@ void ObjectFactory::UpdateProcessingItems()
         }
     }
     std::sort(process_table_.begin(), process_table_.end(),
-    [](IdPtr<IMainObject> item1, IdPtr<IMainObject> item2)
+    [](IdPtr<kv::Object> item1, IdPtr<kv::Object> item2)
     {
         return item1.Id() < item2.Id();
     });
@@ -73,8 +74,10 @@ void ObjectFactory::ForeachProcess()
 {
     UpdateProcessingItems();
 
+    const int game_tick = game_->GetGlobals()->game_tick;
+
     const int CLEAR_TICK = 10;
-    if (MAIN_TICK % CLEAR_TICK == 1)
+    if (game_tick % CLEAR_TICK == 1)
     {
         ClearProcessing();
     }
@@ -87,234 +90,31 @@ void ObjectFactory::ForeachProcess()
         {
             continue;
         }
-        else if ((MAIN_TICK % process_table_[i]->GetFreq()) == 0)
+        else if ((game_tick % process_table_[i]->GetFreq()) == 0)
         {
             process_table_[i]->Process();
         }
     }
 }
 
-void ObjectFactory::SaveMapHeader(FastSerializer& savefile)
+kv::Object* ObjectFactory::NewVoidObject(const QString& type)
 {
-    savefile << MAIN_TICK;
-    savefile << id_;
-
-    // Random save
-    savefile << game_->GetRandom().GetSeed();
-    savefile << game_->GetRandom().GetCallsCounter();
-
-    // Save Map Size
-
-    savefile << game_->GetMap().GetWidth();
-    savefile << game_->GetMap().GetHeight();
-    savefile << game_->GetMap().GetDepth();
-
-    // Save player table
-    savefile << static_cast<quint32>(players_table_.size());
-    for (auto it = players_table_.begin(); it != players_table_.end(); ++it)
+    auto creator = GetItemsCreators()->find(type);
+    if (creator == GetItemsCreators()->end())
     {
-        savefile << it->first;
-        savefile << it->second;
+        kv::Abort(QString("Unable to find creator for type: %1").arg(type));
     }
+    return creator->second();
 }
 
-void ObjectFactory::LoadMapHeader(FastDeserializer& savefile)
+kv::Object* ObjectFactory::NewVoidObjectSaved(const QString& type)
 {
-    savefile >> MAIN_TICK;
-    qDebug() << "MAIN_TICK: " << MAIN_TICK;
-
-    savefile >> id_;
-    qDebug() << "id_: " << id_;
-    
-    unsigned int new_seed;
-    unsigned int new_calls_counter;
-    savefile >> new_seed;
-    savefile >> new_calls_counter;
-
-    game_->GetRandom().SetRand(new_seed, new_calls_counter);
-
-    objects_table_.resize(id_ + 1);
-
-    // Load map size
-    int x;
-    int y;
-    int z;
-
-    savefile >> x;
-    savefile >> y;
-    savefile >> z;
-
-    game_->GetMap().ResizeMap(x, y, z);
-
-    // Load player table
-    quint32 s;
-    savefile >> s;
-    for (quint32 i = 0; i < s; ++i)
+    auto creator = GetVoidItemsCreators()->find(type);
+    if (creator == GetVoidItemsCreators()->end())
     {
-        quint32 first;
-        savefile >> first;
-        quint32 second;
-        savefile >> second;
-
-        qDebug() << first;
-        qDebug() << second;
-        SetPlayerId(first, second);
+        kv::Abort(QString("Unable to find void creator for type: %1").arg(type));
     }
-}
-
-void ObjectFactory::Save(FastSerializer& savefile)
-{
-    SaveMapHeader(savefile);
-
-    auto it = ++objects_table_.begin();
-    while (it != objects_table_.end())
-    {
-        if (it->object)
-        {
-            it->object->Save(savefile);
-        }
-        ++it;
-    }
-
-    savefile.WriteType(END_TYPE);
-}
-
-void ObjectFactory::Load(FastDeserializer& savefile, quint32 real_this_mob)
-{
-    Clear();
-
-    LoadMapHeader(savefile);
-    while (!savefile.IsEnd())
-    {
-        QString type;
-        savefile.ReadType(&type);
-
-        if (type == END_TYPE)
-        {
-            qDebug() << "Zero id reached";
-            break;
-        }
-
-        quint32 id_loc;
-        savefile >> id_loc;
-
-        IMainObject* object = CreateVoid(type, id_loc);
-        object->Load(savefile);
-    }
-
-    quint32 player_id = GetPlayerId(real_this_mob);
-    game_->SetMob(player_id);
-    qDebug() << "Player id:" << player_id;
-    game_->ChangeMob(player_id);
-    is_world_generating_ = false;
-
-    game_->GetMap().GetAtmosphere().LoadGrid();
-}
-
-void ObjectFactory::LoadFromMapGen(const QString& name)
-{
-    Clear();
-
-    QFile file(name);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        qDebug() << "Error open: " << name;
-        KvAbort();
-    }
-
-    QByteArray raw_data;
-    while (file.bytesAvailable())
-    {
-        QByteArray local = file.readLine();
-        if (local.size() < 1)
-        {
-            break;
-        }
-        local = local.left(local.size() - 1);
-        raw_data.append(local);
-    }
-    raw_data = QByteArray::fromHex(raw_data);
-    FastDeserializer ss(raw_data.data(), raw_data.size());
-
-    BeginWorldCreation();
-
-    int x;
-    int y;
-    int z;
-
-    ss >> x;
-    ss >> y;
-    ss >> z;
-
-    game_->MakeTiles(x, y, z);
-
-    qDebug() << "Begin loading cycle";
-    while (!ss.IsEnd())
-    {
-        QString item_type;
-        qint32 x;
-        qint32 y;
-        qint32 z;
-
-        ss.ReadType(&item_type);
-
-        ss >> x;
-        ss >> y;
-        ss >> z;
-
-        //qDebug() << "Create<IOnMapObject>" << &game_->GetFactory();
-        //qDebug() << "Create<IOnMapObject> " << QString::fromStdString(t_item);
-        IdPtr<IOnMapObject> i = CreateImpl(item_type);
-        if (!i.IsValid())
-        {
-            qDebug() << "Unable to cast: " << item_type;
-            KvAbort();
-        }
-        //qDebug() << "Success!";
-
-        MapgenVariablesType variables;
-        WrapReadMessage(ss, variables);
-
-        for (auto it = variables.begin(); it != variables.end(); ++it)
-        {
-            if ((it->second.size() == 0) || (it->first.size() == 0))
-            {
-                continue;
-            }
-
-            QByteArray variable_data = it->second;
-
-            FastDeserializer local(variable_data.data(), variable_data.size());
-
-            auto& setters_for_type = GetSettersForTypes();
-            setters_for_type[item_type][it->first](i.operator*(), local);
-        }
-
-        //qDebug() << "id_ptr_on<ITurf> t = i";
-        if (IdPtr<ITurf> t = i)
-        {
-            if (game_->GetMap().GetSquares()[x][y][z]->GetTurf())
-            {
-                qDebug() << "DOUBLE TURF!";
-            }
-            game_->GetMap().GetSquares()[x][y][z]->SetTurf(t);
-        }
-        else
-        {
-            game_->GetMap().GetSquares()[x][y][z]->AddItem(i);
-        }
-    }
-    FinishWorldCreation();
-}
-
-IMainObject* ObjectFactory::NewVoidObject(const QString& type, quint32 id)
-{
-    return (*GetItemsCreators())[type](id);
-}
-
-IMainObject* ObjectFactory::NewVoidObjectSaved(const QString& type)
-{
-    return (*GetVoidItemsCreators())[type]();
+    return creator->second();
 }
 
 void ObjectFactory::Clear()
@@ -335,7 +135,6 @@ void ObjectFactory::Clear()
     ids_to_delete_.clear();
     process_table_.clear();
     add_to_process_.clear();
-    players_table_.clear();
     add_to_process_.clear();
 
     id_ = 1;
@@ -348,7 +147,7 @@ void ObjectFactory::BeginWorldCreation()
 
 void ObjectFactory::FinishWorldCreation()
 {
-    is_world_generating_ = false;
+    MarkWorldAsCreated();
     quint32 table_size = objects_table_.size();
     for (quint32 i = 1; i < table_size; ++i)
     {
@@ -359,30 +158,43 @@ void ObjectFactory::FinishWorldCreation()
     }
 }
 
+void ObjectFactory::MarkWorldAsCreated()
+{
+    is_world_generating_ = false;
+}
+
 quint32 ObjectFactory::CreateImpl(const QString &type, quint32 owner_id)
 {
-    IMainObject* item = NewVoidObject(type, id_);
-    item->SetGame(game_);
+    kv::Object* item = NewVoidObject(type);
+    kv::internal::GetObjectGame(item) = game_;
 
     if (id_ >= objects_table_.size())
     {
         objects_table_.resize(id_ * 2);
     }
     objects_table_[id_].object = item;
+
+    kv::internal::GetObjectId(item) = id_;
+    item->SetFreq(item->GetFreq());
+
     quint32 retval = id_;
     ++id_;
-    IdPtr<IOnMapBase> owner = owner_id;
+    IdPtr<kv::MapObject> owner = owner_id;
     if (owner.IsValid())
     {
-        if (CastTo<ITurf>(item) != nullptr)
+        if (CastTo<kv::Turf>(item) != nullptr)
         {
             owner->SetTurf(item->GetId());
         }
-        else if (!owner->AddItem(item->GetId()))
+        else if (!owner->AddObject(item->GetId()))
         {
-            qDebug() << "AddItem failed";
-            KvAbort();
+            kv::Abort("AddItem failed");
         }
+    }
+
+    if (item->ToHearer())
+    {
+        game_->GetGlobals()->hearers.append(retval);
     }
 
     if (!is_world_generating_)
@@ -392,10 +204,10 @@ quint32 ObjectFactory::CreateImpl(const QString &type, quint32 owner_id)
     return retval;
 }
 
-IMainObject* ObjectFactory::CreateVoid(const QString &hash, quint32 id_new)
+kv::Object* ObjectFactory::CreateVoid(const QString &hash, quint32 id_new)
 {
-    IMainObject* item = NewVoidObjectSaved(hash);
-    item->SetGame(game_);
+    kv::Object* item = NewVoidObjectSaved(hash);
+    kv::internal::GetObjectGame(item) = game_;
     if (id_new >= objects_table_.size())
     {
         objects_table_.resize(id_new * 2);
@@ -406,7 +218,8 @@ IMainObject* ObjectFactory::CreateVoid(const QString &hash, quint32 id_new)
         id_ = id_new + 1;
     }
     objects_table_[id_new].object = item;
-    item->SetId(id_new);
+    kv::internal::GetObjectId(item) = id_new;
+    item->SetFreq(item->GetFreq());
     return item;
 }
 
@@ -433,12 +246,9 @@ unsigned int ObjectFactory::Hash()
     {
         if (objects_table_[i].object != nullptr)
         {
-            h += objects_table_[i].object->Hash();
+            h += objects_table_[i].object->HashMembers();
         }
     }
-
-    ForceManager::Get().Clear();
-    h += ForceManager::Get().Hash();
 
     ClearProcessing();
 
@@ -452,32 +262,6 @@ unsigned int ObjectFactory::Hash()
     return h;
 }
 
-void ObjectFactory::SetPlayerId(quint32 net_id, quint32 real_id)
-{
-    players_table_[net_id] = real_id;
-}
-quint32 ObjectFactory::GetPlayerId(quint32 net_id)
-{
-    auto it = players_table_.find(net_id);
-    if (it != players_table_.end())
-    {
-        return it->second;
-    }
-    return 0;
-}
-
-quint32 ObjectFactory::GetNetId(quint32 real_id)
-{
-    for (auto it = players_table_.begin(); it != players_table_.end(); ++it)
-    {
-        if (it->second == real_id)
-        {
-            return it->first;
-        }
-    }
-    return 0;
-}
-
 void ObjectFactory::AddProcessingItem(quint32 item)
 {
     add_to_process_.push_back(item);
@@ -485,7 +269,7 @@ void ObjectFactory::AddProcessingItem(quint32 item)
 
 void ObjectFactory::ClearProcessing()
 {
-    std::vector<IdPtr<IMainObject>> remove_from_process;
+    std::vector<IdPtr<kv::Object>> remove_from_process;
     quint32 table_size = process_table_.size();
     for (quint32 i = 0; i < table_size; ++i)
     {

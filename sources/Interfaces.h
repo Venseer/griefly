@@ -4,127 +4,117 @@
 
 #include "core/Constheader.h"
 #include "core/Idptr.h"
+#include "CoreInterface.h"
 
 #include <QString>
 
-class SyncRandom;
 class Names;
-class IMob;
-class TextPainter;
-class IMainObject;
-class CubeTile;
-class IOnMapBase;
+namespace kv
+{
+    class Mob;
+    class MapObject;
+    class Object;
+    class CubeTile;
+    class GlobalObjectsHolder;
+    class ChatFrameInfo;
+}
+class MapInterface;
+class Representation;
 
-class IAtmosphere
+class AtmosInterface
 {
 public:
-    virtual ~IAtmosphere() { }
+    virtual ~AtmosInterface() { }
 
-    virtual void Resize(quint32 x, quint32 y, quint32 z) = 0;
-    virtual void Process() = 0;
-    virtual void ProcessMove() = 0;
+    virtual void Process(qint32 game_tick) = 0;
+    virtual void ProcessMove(qint32 game_tick) = 0;
 
-    typedef char Flags;
+    virtual void Represent(kv::GrowingFrame* frame) const = 0;
+
+    using Flags = char;
     virtual void SetFlags(quint32 x, quint32 y, quint32 z, Flags flags) = 0;
-    virtual void LoadGrid() = 0;
+    virtual void LoadGrid(MapInterface* map) = 0;
 };
 
-class IMapMaster
+using VisiblePoints = QVector<kv::Position>;
+
+class MapInterface
 {
 public:
-    virtual ~IMapMaster() { }
+    virtual ~MapInterface() { }
 
     virtual int GetWidth() const = 0;
     virtual int GetHeight() const = 0;
     virtual int GetDepth() const = 0;
 
-    virtual void Represent() = 0;
+    virtual void Represent(kv::GrowingFrame* frame, const VisiblePoints& points) const = 0;
 
-    virtual void ResizeMap(int new_map_x, int new_map_y, int new_map_z) = 0;
+    virtual void Resize(int new_map_x, int new_map_y, int new_map_z) = 0;
 
-    typedef IdPtr<CubeTile> SqType;
-    virtual std::vector<std::vector<std::vector<SqType>>>& GetSquares() = 0;
-    virtual const std::vector<std::vector<std::vector<SqType>>>& GetSquares() const = 0;
+    using SqType = IdPtr<kv::CubeTile>;
+    virtual SqType& At(int x, int y, int z) = 0;
+    virtual const SqType& At(int x, int y, int z) const = 0;
 
-    virtual std::list<PosPoint>* GetVisiblePoints() = 0;
-    virtual IAtmosphere& GetAtmosphere() = 0;
-    virtual void FillAtmosphere() = 0;
-    virtual void CalculateVisisble(std::list<PosPoint>* retval, int posx, int posy, int posz = 0) = 0;
+    virtual void FillTilesAtmosHolders() = 0;
+    virtual void CalculateLos(VisiblePoints* retval, int posx, int posy, int posz = 0) const = 0;
     virtual bool IsTileVisible(quint32 tile_id) = 0;
 
-    virtual bool IsTransparent(int posx, int posy, int posz = 0) = 0;
-
-    virtual bool CheckBorders(const int* x, const int* y, const int* z) const = 0;
+    virtual bool IsTransparent(int posx, int posy, int posz = 0) const = 0;
 };
 
-class IObjectFactory
+class ObjectFactoryInterface
 {
 public:
-    virtual ~IObjectFactory() { }
+    virtual ~ObjectFactoryInterface() { }
 
-    virtual std::vector<ObjectInfo>& GetIdTable() = 0;
+    virtual QVector<ObjectInfo>& GetIdTable() = 0;
 
     virtual void ForeachProcess() = 0;
 
     virtual unsigned int Hash() = 0;
 
-    virtual void Save(FastSerializer& str) = 0;
-    virtual void Load(FastDeserializer& str, quint32 real_this_mob) = 0;
-
-    virtual void LoadFromMapGen(const QString& name) = 0;
-
     virtual void BeginWorldCreation() = 0;
     virtual void FinishWorldCreation() = 0;
+    virtual void MarkWorldAsCreated() = 0;
 
     virtual quint32 CreateImpl(const QString& type, quint32 owner = 0) = 0;
+    virtual kv::Object* CreateVoid(const QString& hash, quint32 id_new) = 0;
 
     virtual void DeleteLater(quint32 id) = 0;
     virtual void ProcessDeletion() = 0;
 
     virtual void AddProcessingItem(quint32 item) = 0;
 
-    virtual void SetPlayerId(quint32 net_id, quint32 real_id) = 0;
-    virtual quint32 GetPlayerId(quint32 net_id) = 0;
-    virtual quint32 GetNetId(quint32 real_id) = 0;
+    virtual void Clear() = 0;
+
+    virtual int GetId() = 0;
+    virtual void SetId(int id) = 0;
 };
 
-class IChat
+class GameInterface
 {
 public:
-    virtual ~IChat() { }
+    virtual ~GameInterface() { }
 
-    virtual void PostTextFor(const QString& str, IdPtr<IOnMapBase> owner) = 0;
-    virtual void PostHtmlFor(const QString& str, IdPtr<IOnMapBase> owner) = 0;
-    virtual void PostText(const QString& str) = 0;
-    virtual void PostOOCText(const QString& who, const QString& str) = 0;
-    virtual void PostSimpleText(const QString& str, quint32 tile_id) = 0;
-    virtual void PostHtmlText(const QString& str, quint32 tile_id) = 0;
-    virtual void PostDamage(const QString& by, const QString& who,
-                            const QString& object, quint32 tile_id) = 0;
-    virtual void PostWords(const QString& who, const QString& text, quint32 tile_id) = 0;
-};
-
-class IGame
-{
-public:
-    virtual ~IGame() { }
-
-    virtual IMapMaster& GetMap() = 0;
-    virtual const IMapMaster& GetMap() const = 0;
-    virtual IObjectFactory& GetFactory() = 0;
-    virtual IChat& GetChat() = 0;
-    virtual TextPainter& GetTexts() = 0;
-    virtual SyncRandom& GetRandom() = 0;
+    virtual AtmosInterface& GetAtmosphere() = 0;
+    virtual MapInterface& GetMap() = 0;
+    virtual const MapInterface& GetMap() const = 0;
+    virtual ObjectFactoryInterface& GetFactory() = 0;
     virtual Names& GetNames() = 0;
+    virtual kv::ChatFrameInfo& GetChatFrameInfo() = 0;
 
     virtual void MakeTiles(int size_x, int size_y, int size_z) = 0;
 
-    virtual void SetUnsyncGenerator(quint32 generator) = 0;
-
-    virtual void ChangeMob(IdPtr<IMob> new_mob) = 0;
-    virtual IdPtr<IMob> GetMob() = 0;
+    virtual IdPtr<kv::Mob> GetMob() = 0;
     virtual void SetMob(quint32 new_mob) = 0;
 
-    virtual void AddSound(const QString& name) = 0;
-    virtual void PlayMusic(const QString& name, float volume) = 0;
+    virtual IdPtr<kv::GlobalObjectsHolder> GetGlobals() const = 0;
+    virtual void SetGlobals(quint32 globals) = 0;
+
+    virtual void SetPlayerId(quint32 net_id, quint32 real_id) = 0;
+    virtual quint32 GetPlayerId(quint32 net_id) const = 0;
+    virtual quint32 GetNetId(quint32 real_id) const = 0;
+
+    virtual void AddSound(const QString& name, kv::Position position) = 0;
+    virtual void PlayMusic(const QString& name, int volume, quint32 mob) = 0;
 };

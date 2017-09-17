@@ -3,53 +3,42 @@
 #include <vector>
 
 #include "Idptr.h"
-#include "objects/OnMapObject.h"
+#include "objects/MaterialObject.h"
 
-class IOnMapBase;
-
-class ObjectFactory : public IObjectFactory
+class ObjectFactory : public ObjectFactoryInterface
 {
 public:
-    ObjectFactory(IGame* game);
+    ObjectFactory(GameInterface* game);
     virtual ~ObjectFactory();
 
-    virtual std::vector<ObjectInfo>& GetIdTable() override;
+    virtual QVector<ObjectInfo>& GetIdTable() override;
 
     virtual void ForeachProcess() override;
 
     virtual unsigned int Hash() override;
 
-    virtual void Save(FastSerializer& str) override;
-    virtual void Load(FastDeserializer& str, quint32 real_this_mob) override;
-    
-    virtual void LoadFromMapGen(const QString& name) override;
-
     virtual void BeginWorldCreation() override;
     virtual void FinishWorldCreation() override;
+    virtual void MarkWorldAsCreated() override;
 
     virtual quint32 CreateImpl(const QString& type, quint32 owner = 0) override;
+    virtual kv::Object* CreateVoid(const QString& hash, quint32 id_new) override;
 
     virtual void DeleteLater(quint32 id) override;
     virtual void ProcessDeletion() override;
 
     virtual void AddProcessingItem(quint32 item) override;
+    virtual void Clear() override;
 
-    virtual void SetPlayerId(quint32 net_id, quint32 real_id) override;
-    virtual quint32 GetPlayerId(quint32 net_id) override;
-    virtual quint32 GetNetId(quint32 real_id) override;
+    virtual int GetId() override { return id_; }
+    virtual void SetId(int id) override { id_ = id; }
 private:
-    void Clear();
     void ClearProcessing();
 
-    void SaveMapHeader(FastSerializer& str);
-    void LoadMapHeader(FastDeserializer& savefile);
+    static kv::Object* NewVoidObject(const QString& type);
+    static kv::Object* NewVoidObjectSaved(const QString& type);
 
-    IMainObject* CreateVoid(const QString& hash, quint32 id_new);
-
-    static IMainObject* NewVoidObject(const QString& type, quint32 id);
-    static IMainObject* NewVoidObjectSaved(const QString& type);
-
-    IGame* game_;
+    GameInterface* game_;
 
     QByteArray saved_map_;
 
@@ -57,15 +46,12 @@ private:
 
     void UpdateProcessingItems();
 
-    std::vector<IMainObject*> ids_to_delete_;
+    QVector<kv::Object*> ids_to_delete_;
 
-    std::vector<ObjectInfo> objects_table_;
-    std::vector<IdPtr<IMainObject>> process_table_;
+    QVector<ObjectInfo> objects_table_;
+    QVector<IdPtr<kv::Object>> process_table_;
 
-    std::vector<IdPtr<IMainObject>> add_to_process_;
+    QVector<IdPtr<kv::Object>> add_to_process_;
 
     quint32 id_;
-
-    std::map<quint32, quint32> players_table_;
-
 };
