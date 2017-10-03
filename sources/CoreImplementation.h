@@ -19,7 +19,7 @@ public:
     // TODO: Look into #360 properly
     virtual void ProcessNextTick(const QVector<Message>& messages) override;
 
-    virtual void Represent(GrowingFrame* frame) const override;
+    virtual void Represent(const QVector<PlayerAndFrame>& frames) const override;
 
     virtual quint32 Hash() const override;
 
@@ -27,15 +27,15 @@ public:
 
     // Game interface
     virtual AtmosInterface& GetAtmosphere() override;
+    virtual const AtmosInterface& GetAtmosphere() const override;
     virtual MapInterface& GetMap() override;
     virtual const MapInterface& GetMap() const override;
     virtual ObjectFactoryInterface& GetFactory() override;
     virtual Names& GetNames() override;
-    virtual kv::ChatFrameInfo& GetChatFrameInfo() override;
+    virtual ChatFrameInfo& GetChatFrameInfo() override;
+    virtual const ChatFrameInfo& GetChatFrameInfo() const override;
 
-    virtual void MakeTiles(int size_x, int size_y, int size_z) override;
-
-    virtual IdPtr<kv::Mob> GetMob() override;
+    virtual IdPtr<kv::Mob> GetMob() const override;
     virtual void SetMob(quint32 new_mob) override;
 
     virtual IdPtr<kv::GlobalObjectsHolder> GetGlobals() const override;
@@ -48,6 +48,12 @@ public:
     virtual void AddSound(const QString& name, kv::Position position) override;
     virtual void PlayMusic(const QString& name, int volume, quint32 mob) override;
 private:
+    void RemoveStaleRepresentation();
+
+    void AppendSystemTexts(GrowingFrame* frame) const;
+    void AppendSoundsToFrame(GrowingFrame* frame, const VisiblePoints& points, quint32 net_id) const;
+    void AppendChatMessages(GrowingFrame* frame, const VisiblePoints& points, quint32 net_id) const;
+
     std::unique_ptr<AtmosInterface> atmos_;
     std::unique_ptr<ObjectFactoryInterface> factory_;
     std::unique_ptr<Names> names_;
@@ -59,6 +65,8 @@ private:
     IdPtr<kv::GlobalObjectsHolder> global_objects_;
 
     IdPtr<kv::Mob> current_mob_;
+
+    QVector<QPair<kv::Position, QString>> sounds_for_frame_;
 };
 
 class CoreImplementation : public CoreInterface

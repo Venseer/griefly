@@ -80,56 +80,51 @@ void WorldLoaderSaver::Load(kv::FastDeserializer& deserializer, quint32 real_thi
     game_->GetAtmosphere().LoadGrid(&game_->GetMap());
 }
 
-void WorldLoaderSaver::LoadFromMapGen(const QString& name)
+void WorldLoaderSaver::LoadFromMapGen(FastDeserializer& deserializer)
 {
     ObjectFactoryInterface& factory = game_->GetFactory();
-
-    QFile file(name);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        kv::Abort(QString("Error open: %1").arg(name));
-    }
-
-    QByteArray raw_data;
-    while (file.bytesAvailable())
-    {
-        QByteArray local = file.readLine();
-        if (local.size() < 1)
-        {
-            break;
-        }
-        local = local.left(local.size() - 1);
-        raw_data.append(local);
-    }
-    raw_data = QByteArray::fromHex(raw_data);
-    kv::FastDeserializer ss(raw_data.data(), raw_data.size());
-
     factory.BeginWorldCreation();
 
-    int x;
-    int y;
-    int z;
+    int map_x;
+    int map_y;
+    int map_z;
 
-    ss >> x;
-    ss >> y;
-    ss >> z;
+    deserializer >> map_x;
+    deserializer >> map_y;
+    deserializer >> map_z;
 
-    game_->MakeTiles(x, y, z);
+    auto& map = game_->GetMap();
+
+    // Making tiles
+    map.Resize(map_x, map_y, map_z);
+    for (int x = 0; x < map.GetWidth(); x++)
+    {
+        for (int y = 0; y < map.GetHeight(); y++)
+        {
+            for (int z = 0; z < map.GetDepth(); z++)
+            {
+                IdPtr<CubeTile> tile = game_->GetFactory().CreateImpl(CubeTile::GetTypeStatic());
+                tile->SetPos({x, y, z});
+                map.At(x, y, z) = tile;
+            }
+        }
+    }
+
     game_->GetAtmosphere().LoadGrid(&game_->GetMap());
 
     qDebug() << "Begin loading cycle";
-    while (!ss.IsEnd())
+    while (!deserializer.IsEnd())
     {
         QString item_type;
         qint32 x;
         qint32 y;
         qint32 z;
 
-        ss.ReadType(&item_type);
+        deserializer.ReadType(&item_type);
 
-        ss >> x;
-        ss >> y;
-        ss >> z;
+        deserializer >> x;
+        deserializer >> y;
+        deserializer >> z;
 
         IdPtr<kv::MaterialObject> i = factory.CreateImpl(item_type);
         if (!i.IsValid())
@@ -138,7 +133,7 @@ void WorldLoaderSaver::LoadFromMapGen(const QString& name)
         }
 
         MapgenVariablesType variables;
-        ss >> variables;
+        deserializer >> variables;
 
         for (auto it = variables.begin(); it != variables.end(); ++it)
         {
