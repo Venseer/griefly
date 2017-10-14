@@ -31,6 +31,7 @@ public:
     virtual MapInterface& GetMap() override;
     virtual const MapInterface& GetMap() const override;
     virtual ObjectFactoryInterface& GetFactory() override;
+    virtual const ObjectFactoryInterface& GetFactory() const override;
     virtual Names& GetNames() override;
     virtual ChatFrameInfo& GetChatFrameInfo() override;
     virtual const ChatFrameInfo& GetChatFrameInfo() const override;
@@ -47,8 +48,15 @@ public:
 
     virtual void AddSound(const QString& name, kv::Position position) override;
     virtual void PlayMusic(const QString& name, int volume, quint32 mob) override;
+
+    void PrepareToMapgen();
+    void AfterMapgen(quint32 id, bool unsync_generation);
 private:
     void RemoveStaleRepresentation();
+    void ProcessInputMessages(const QVector<Message>& messages);
+    void ProcessInputMessage(const Message& message);
+
+    void PostOoc(const QString& who, const QString& text);
 
     void AppendSystemTexts(GrowingFrame* frame) const;
     void AppendSoundsToFrame(GrowingFrame* frame, const VisiblePoints& points, quint32 net_id) const;
@@ -58,8 +66,6 @@ private:
     std::unique_ptr<ObjectFactoryInterface> factory_;
     std::unique_ptr<Names> names_;
 
-    WorldLoaderSaver loader_saver_;
-
     kv::ChatFrameInfo chat_frame_info_;
 
     IdPtr<kv::GlobalObjectsHolder> global_objects_;
@@ -67,13 +73,24 @@ private:
     IdPtr<kv::Mob> current_mob_;
 
     QVector<QPair<kv::Position, QString>> sounds_for_frame_;
+
+    // Perfomance
+    qint64 process_messages_ns_;
+    qint64 foreach_process_ns_;
+    qint64 force_process_ns_;
+    qint64 atmos_process_ns_;
+    qint64 deletion_process_ns_;
+    qint64 update_visibility_ns_;
+    qint64 frame_generation_ns_;
 };
 
 class CoreImplementation : public CoreInterface
 {
 public:
-    virtual WorldPtr CreateWorldFromSave(const QByteArray& data, quint32 mob_id) override;
-    virtual WorldPtr CreateWorldFromMapgen(const QByteArray& data) override;
+    virtual WorldPtr CreateWorldFromSave(
+        const QByteArray& data, quint32 mob_id) override;
+    virtual WorldPtr CreateWorldFromMapgen(
+        const QByteArray& data, quint32 mob_id, const Config& config) override;
 
     virtual const ObjectsMetadata& GetObjectsMetadata() const override;
 };

@@ -6,7 +6,16 @@
 #include "core/objects/MaterialObject.h"
 #include "core/objects/GlobalObjectsHolder.h"
 #include "core/objects/mobs/Mob.h"
+#include "core/objects/mobs/LoginMob.h"
 #include "core/Map.h"
+
+#include "core/objects/test/UnsyncGenerator.h"
+#include "core/objects/GlobalObjectsHolder.h"
+
+#include "core/SynchronizedRandom.h"
+#include "core/objects/PhysicsEngine.h"
+#include "core/objects/Lobby.h"
+#include "core/objects/SpawnPoints.h"
 
 #include "core/atmos/Atmos.h"
 #include "core/ObjectFactory.h"
@@ -48,7 +57,13 @@ WorldImplementation::WorldImplementation()
     : atmos_(new Atmosphere),
       factory_(new ObjectFactory(this)),
       names_(new Names(this)),
-      loader_saver_(this)
+      process_messages_ns_(0),
+      foreach_process_ns_(0),
+      force_process_ns_(0),
+      atmos_process_ns_(0),
+      deletion_process_ns_(0),
+      update_visibility_ns_(0),
+      frame_generation_ns_(0)
 {
     // Nothing
 }
@@ -60,7 +75,7 @@ WorldImplementation::~WorldImplementation()
 
 void WorldImplementation::SaveWorld(FastSerializer* data) const
 {
-    loader_saver_.Save(*data);
+    WorldLoaderSaver::Save(this, *data);
 }
 
 // TODO: Look into #360 properly
@@ -68,8 +83,100 @@ void WorldImplementation::ProcessNextTick(const QVector<Message>& messages)
 {
     RemoveStaleRepresentation();
 
+    ProcessInputMessages(messages);
+
     // TODO
     Q_UNUSED(messages)
+}
+
+void WorldImplementation::RemoveStaleRepresentation()
+{
+    sounds_for_frame_.clear();
+    chat_frame_info_.Reset();
+}
+
+void WorldImplementation::ProcessInputMessages(const QVector<Message>& messages)
+{
+    for (const Message& message : qAsConst(messages))
+    {
+        ProcessInputMessage(message);
+    }
+}
+
+namespace key
+{
+    const QString ID("id");
+    const QString LOGIN("login");
+    const QString TEXT("text");
+}
+
+void WorldImplementation::ProcessInputMessage(const Message& message)
+{
+    if (message.type == MessageType::NEW_CLIENT)
+    {
+        const int new_id = message.data.value(key::ID).toInt();
+
+        const quint32 player_id = GetPlayerId(new_id);
+        if (player_id != 0)
+        {
+            qDebug() << "Client under net_id" << player_id << "already exists";
+            return;
+        }
+
+        IdPtr<LoginMob> mob = GetFactory().CreateImpl(LoginMob::GetTypeStatic());
+        SetPlayerId(player_id,mob.Id());
+        mob->MindEnter();
+
+        qDebug() << "New client: " << player_id << mob.Id();
+        return;
+    }
+    if (message.type == MessageType::OOC_MESSAGE)
+    {
+        const QString login = message.data[key::LOGIN].toString();
+        const QString text = message.data[key::TEXT].toString();
+        PostOoc(login, text);
+        return;
+    }
+
+    if (   message.type == MessageType::ORDINARY
+        || message.type == MessageType::MOUSE_CLICK
+        || message.type == MessageType::MESSAGE)
+    {
+        const int net_id = message.data[key::ID].toInt();
+        const quint32 game_id = GetPlayerId(net_id);
+        if (game_id == 0)
+        {
+            qDebug() << "Game id is 0";
+        }
+
+        IdPtr<Mob> game_object = game_id;
+        if (game_object.IsValid())
+        {
+            // TODO: processing to proper message
+            // game_object->ProcessMessage(*it);
+        }
+        else
+        {
+            kv::Abort(QString("Game object is not valid: %1").arg(net_id));
+        }
+    }
+}
+
+void WorldImplementation::PostOoc(const QString& who, const QString& text)
+{
+    const QString escaped_who = who.toHtmlEscaped();
+    const QString escaped_text = text.toHtmlEscaped();
+
+    const QString post_text
+        = QString("<font color=\"blue\"><b>%1</b>: <span>%2</span></font>")
+            .arg(escaped_who)
+            .arg(escaped_text);
+
+    const auto& players = GetGlobals()->players_table;
+    for (auto it = players.begin(); it != players.end(); ++it)
+    {
+        GetChatFrameInfo().PostPersonal(post_text, it.key());
+    }
 }
 
 void WorldImplementation::Represent(const QVector<PlayerAndFrame>& frames) const
@@ -111,8 +218,20 @@ void WorldImplementation::AppendSystemTexts(GrowingFrame* frame) const
     {
         frame->Append(FrameData::TextEntry{tab, text.arg(value)});
     };
+    auto append_ns = [&append](QString text, qint64 ns)
+    {
+        append("Performance", text, (ns * 1.0) / 1000000.0);
+    };
 
     append("Main", "Game tick: %1", GetGlobals()->game_tick);
+
+    append_ns("Process messages: %1 ms", process_messages_ns_);
+    append_ns("Process objects: %1 ms", foreach_process_ns_);
+    append_ns("Process force movement: %1 ms", force_process_ns_);
+    append_ns("Process atmos: %1 ms", atmos_process_ns_);
+    append_ns("Process deletion: %1 ms", deletion_process_ns_);
+    append_ns("Update visibility: %1 ms", update_visibility_ns_);
+    append_ns("Frame generation: %1 ms", frame_generation_ns_);
 }
 
 void WorldImplementation::AppendSoundsToFrame(
@@ -188,6 +307,11 @@ ObjectFactoryInterface& WorldImplementation::GetFactory()
     return *factory_;
 }
 
+const ObjectFactoryInterface& WorldImplementation::GetFactory() const
+{
+    return *factory_;
+}
+
 Names& WorldImplementation::GetNames()
 {
     return *names_;
@@ -252,34 +376,80 @@ quint32 WorldImplementation::GetNetId(quint32 real_id) const
     return 0;
 }
 
-void WorldImplementation::AddSound(const QString& name, Position position)
+void WorldImplementation::AddSound(const QString& name, const Position position)
 {
     sounds_for_frame_.append({position, name});
 }
 
-void WorldImplementation::PlayMusic(const QString& name, int volume, quint32 mob)
+void WorldImplementation::PlayMusic(const QString& name, const int volume, const quint32 mob)
 {
     qDebug() << "Music playing:" << mob << name << volume;
     auto& musics_for_mobs = global_objects_->musics_for_mobs;
     musics_for_mobs[mob] = {name, volume};
 }
 
-void WorldImplementation::RemoveStaleRepresentation()
+void WorldImplementation::PrepareToMapgen()
 {
-    sounds_for_frame_.clear();
-    chat_frame_info_.Reset();
+    qsrand(QDateTime::currentDateTime().toMSecsSinceEpoch());
+
+    global_objects_ = GetFactory().CreateImpl(kv::GlobalObjectsHolder::GetTypeStatic());
+    global_objects_->map = GetFactory().CreateImpl(kv::Map::GetTypeStatic());
+    global_objects_->random = GetFactory().CreateImpl(kv::SynchronizedRandom::GetTypeStatic());
+    global_objects_->physics_engine_ = GetFactory().CreateImpl(kv::PhysicsEngine::GetTypeStatic());
+
+    quint32 seed = static_cast<quint32>(qrand());
+    global_objects_->random->SetParams(seed, 0);
 }
 
-CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromSave(const QByteArray& data, quint32 mob_id)
+void WorldImplementation::AfterMapgen(const quint32 id, const bool unsync_generation)
 {
-    // TODO
+    global_objects_->lobby = GetFactory().CreateImpl(kv::Lobby::GetTypeStatic());
 
-    return nullptr;
+    if (unsync_generation)
+    {
+        global_objects_->unsync_generator
+            = GetFactory().CreateImpl(UnsyncGenerator::GetTypeStatic());
+    }
+
+    for (auto it = GetFactory().GetIdTable().begin();
+              it != GetFactory().GetIdTable().end();
+            ++it)
+    {
+        if (it->object && (it->object->GetTypeIndex() == SpawnPoint::GetTypeIndexStatic()))
+        {
+            global_objects_->lobby->AddSpawnPoint(it->object->GetId());
+        }
+    }
+
+    IdPtr<LoginMob> newmob = GetFactory().CreateImpl(LoginMob::GetTypeStatic());
+
+    SetPlayerId(id, newmob.Id());
+    SetMob(newmob.Id());
+    newmob->MindEnter();
 }
-CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromMapgen(const QByteArray& data)
+
+CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromSave(
+    const QByteArray& data, const quint32 mob_id)
 {
-    // TODO
-    return nullptr;
+    auto world = std::make_shared<WorldImplementation>();
+    FastDeserializer deserializer(data.data(), data.size());
+    WorldLoaderSaver::Load(world.get(), deserializer, mob_id);
+    return world;
+}
+
+CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromMapgen(
+    const QByteArray& data, const quint32 mob_id, const Config& config)
+{
+    auto world = std::make_shared<WorldImplementation>();
+
+    world->PrepareToMapgen();
+
+    FastDeserializer deserializer(data.data(), data.size());
+    WorldLoaderSaver::LoadFromMapGen(world.get(), deserializer);
+
+    world->AfterMapgen(mob_id, config.unsync_generation);
+
+    return world;
 }
 
 const CoreImplementation::ObjectsMetadata& CoreImplementation::GetObjectsMetadata() const

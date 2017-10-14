@@ -9,17 +9,15 @@ namespace kv
 class WorldLoaderSaver
 {
 public:
-    WorldLoaderSaver(GameInterface* game);
+    WorldLoaderSaver();
 
-    void Save(kv::FastSerializer& serializer) const;
+    void static Save(const GameInterface* game, kv::FastSerializer& serializer);
     // TODO: 'real_this_mob' should be removed from here
-    void Load(kv::FastDeserializer& deserializer, quint32 real_this_mob);
-    void LoadFromMapGen(FastDeserializer& deserializer);
+    void static Load(GameInterface* game, kv::FastDeserializer& deserializer, quint32 real_this_mob);
+    void static LoadFromMapGen(GameInterface* game, FastDeserializer& deserializer);
 private:
-    void SaveMapHeader(kv::FastSerializer& serializer) const;
-    void LoadMapHeader(kv::FastDeserializer& deserializer);
-
-    GameInterface* game_;
+    void static SaveMapHeader(const GameInterface* game, kv::FastSerializer& serializer);
+    void static LoadMapHeader(GameInterface* game, kv::FastDeserializer& deserializer);
 };
 
 }

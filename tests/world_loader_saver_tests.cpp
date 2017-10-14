@@ -10,6 +10,7 @@
 
 using ::testing::ReturnRef;
 using ::testing::Return;
+using ::testing::Const;
 
 using namespace kv;
 
@@ -29,9 +30,10 @@ TEST(WorldLoaderSaver, SaveAndLoadNoObjects)
 
         EXPECT_CALL(game, GetFactory())
             .WillRepeatedly(ReturnRef(factory));
+        EXPECT_CALL(Const(game), GetFactory())
+            .WillRepeatedly(ReturnRef(factory));
 
-        WorldLoaderSaver loader_saver(&game);
-        loader_saver.Save(serializer);
+        WorldLoaderSaver::Save(&game, serializer);
     }
     FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
     {
@@ -52,9 +54,10 @@ TEST(WorldLoaderSaver, SaveAndLoadNoObjects)
 
         EXPECT_CALL(game, GetFactory())
             .WillRepeatedly(ReturnRef(factory));
+        EXPECT_CALL(Const(game), GetFactory())
+            .WillRepeatedly(ReturnRef(factory));
 
-        WorldLoaderSaver loader_saver(&game);
-        loader_saver.Load(deserializer, 0);
+        WorldLoaderSaver::Load(&game, deserializer, 0);
 
         EXPECT_EQ(factory.Hash(), hash);
     }
@@ -80,13 +83,14 @@ TEST(WorldLoaderSaver, SaveAndLoadWithObjects)
 
         EXPECT_CALL(game, GetFactory())
             .WillRepeatedly(ReturnRef(factory));
+        EXPECT_CALL(Const(game), GetFactory())
+            .WillRepeatedly(ReturnRef(factory));
         EXPECT_CALL(game, GetMap())
             .WillRepeatedly(ReturnRef(map));
         EXPECT_CALL(game, GetGlobals())
             .WillRepeatedly(Return(globals));
 
-        WorldLoaderSaver loader_saver(&game);
-        loader_saver.Save(serializer);
+        WorldLoaderSaver::Save(&game, serializer);
     }
     FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
     {
@@ -96,6 +100,8 @@ TEST(WorldLoaderSaver, SaveAndLoadWithObjects)
         ObjectFactory factory(&game);
 
         EXPECT_CALL(game, GetFactory())
+            .WillRepeatedly(ReturnRef(factory));
+        EXPECT_CALL(Const(game), GetFactory())
             .WillRepeatedly(ReturnRef(factory));
         EXPECT_CALL(game, SetGlobals(globals_id));
         EXPECT_CALL(game, GetMap())
@@ -107,8 +113,7 @@ TEST(WorldLoaderSaver, SaveAndLoadWithObjects)
         EXPECT_CALL(atmos, LoadGrid(&map))
             .Times(1);
 
-        WorldLoaderSaver loader_saver(&game);
-        loader_saver.Load(deserializer, 0);
+        WorldLoaderSaver::Load(&game, deserializer, 0);
 
         {
             ASSERT_GE(factory.GetIdTable().size(), 2);
