@@ -73,20 +73,58 @@ WorldImplementation::~WorldImplementation()
     // Nothing
 }
 
-void WorldImplementation::SaveWorld(FastSerializer* data) const
-{
-    WorldLoaderSaver::Save(this, *data);
-}
-
-// TODO: Look into #360 properly
-void WorldImplementation::ProcessNextTick(const QVector<Message>& messages)
+void WorldImplementation::StartTick()
 {
     RemoveStaleRepresentation();
 
-    ProcessInputMessages(messages);
+    // Next tick
+    GetGlobals()->game_tick += 1;
 
-    // TODO
-    Q_UNUSED(messages)
+    GetFactory().ForeachProcess();
+
+    const int ATMOS_OFTEN = 1;
+    const int ATMOS_MOVE_OFTEN = 1;
+    const int game_tick = GetGlobals()->game_tick;
+    if (ATMOS_OFTEN == 1 || (game_tick % ATMOS_OFTEN == 1))
+    {
+        GetAtmosphere().Process(game_tick);
+    }
+    if (ATMOS_MOVE_OFTEN == 1 || (game_tick % ATMOS_MOVE_OFTEN == 1))
+    {
+        GetAtmosphere().ProcessMove(game_tick);
+    }
+}
+
+void WorldImplementation::ProcessMessage(const Message& message)
+{
+    ProcessInputMessage(message);
+}
+
+void WorldImplementation::FinishTick()
+{
+    ProcessHearers();
+    GetFactory().ProcessDeletion();
+}
+
+void WorldImplementation::ProcessHearers()
+{
+    QVector<IdPtr<Object>>& hearers = global_objects_->hearers;
+    QVector<IdPtr<Object>> deleted_hearers;
+
+    for (const IdPtr<Object>& hearer : qAsConst(hearers))
+    {
+        if (!hearer.IsValid())
+        {
+            deleted_hearers.append(hearer);
+            continue;
+        }
+        chat_frame_info_.ApplyHear(hearer->ToHearer());
+    }
+
+    for (const IdPtr<Object>& deleted : qAsConst(deleted_hearers))
+    {
+        hearers.erase(std::find(hearers.begin(), hearers.end(), deleted));
+    }
 }
 
 void WorldImplementation::RemoveStaleRepresentation()
@@ -95,19 +133,13 @@ void WorldImplementation::RemoveStaleRepresentation()
     chat_frame_info_.Reset();
 }
 
-void WorldImplementation::ProcessInputMessages(const QVector<Message>& messages)
-{
-    for (const Message& message : qAsConst(messages))
-    {
-        ProcessInputMessage(message);
-    }
-}
-
 namespace key
 {
-    const QString ID("id");
-    const QString LOGIN("login");
-    const QString TEXT("text");
+
+const QString ID("id");
+const QString LOGIN("login");
+const QString TEXT("text");
+
 }
 
 void WorldImplementation::ProcessInputMessage(const Message& message)
@@ -116,18 +148,21 @@ void WorldImplementation::ProcessInputMessage(const Message& message)
     {
         const int new_id = message.data.value(key::ID).toInt();
 
-        const quint32 player_id = GetPlayerId(new_id);
-        if (player_id != 0)
         {
-            qDebug() << "Client under net_id" << player_id << "already exists";
-            return;
+            // Some sanity check
+            const quint32 player_id = GetPlayerId(new_id);
+            if (player_id != 0)
+            {
+                qDebug() << "Client under net_id" << player_id << "already exists";
+                return;
+            }
         }
 
         IdPtr<LoginMob> mob = GetFactory().CreateImpl(LoginMob::GetTypeStatic());
-        SetPlayerId(player_id,mob.Id());
+        SetPlayerId(new_id, mob.Id());
         mob->MindEnter();
 
-        qDebug() << "New client: " << player_id << mob.Id();
+        qDebug() << "New client: " << new_id << mob.Id();
         return;
     }
     if (message.type == MessageType::OOC_MESSAGE)
@@ -152,14 +187,14 @@ void WorldImplementation::ProcessInputMessage(const Message& message)
         IdPtr<Mob> game_object = game_id;
         if (game_object.IsValid())
         {
-            // TODO: processing to proper message
-            // game_object->ProcessMessage(*it);
+            game_object->ProcessMessage(message);
         }
         else
         {
             kv::Abort(QString("Game object is not valid: %1").arg(net_id));
         }
     }
+    // TODO: warning unknown message
 }
 
 void WorldImplementation::PostOoc(const QString& who, const QString& text)
@@ -210,6 +245,11 @@ void WorldImplementation::Represent(const QVector<PlayerAndFrame>& frames) const
         // TODO: reset all shifts
         frame->SetCamera(GetMob()->GetPosition().x, GetMob()->GetPosition().y);
     }
+}
+
+qint32 WorldImplementation::GetGameTick() const
+{
+    return GetGlobals()->game_tick;
 }
 
 void WorldImplementation::AppendSystemTexts(GrowingFrame* frame) const
@@ -280,6 +320,11 @@ void WorldImplementation::AppendChatMessages(
 quint32 WorldImplementation::Hash() const
 {
     return factory_->Hash();
+}
+
+void WorldImplementation::SaveWorld(FastSerializer* data) const
+{
+    world::Save(this, *data);
 }
 
 AtmosInterface& WorldImplementation::GetAtmosphere()
@@ -433,7 +478,7 @@ CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromSave(
 {
     auto world = std::make_shared<WorldImplementation>();
     FastDeserializer deserializer(data.data(), data.size());
-    WorldLoaderSaver::Load(world.get(), deserializer, mob_id);
+    world::Load(world.get(), deserializer, mob_id);
     return world;
 }
 
@@ -445,7 +490,7 @@ CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromMapgen(
     world->PrepareToMapgen();
 
     FastDeserializer deserializer(data.data(), data.size());
-    WorldLoaderSaver::LoadFromMapGen(world.get(), deserializer);
+    world::LoadFromMapGen(world.get(), deserializer);
 
     world->AfterMapgen(mob_id, config.unsync_generation);
 

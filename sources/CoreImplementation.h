@@ -17,10 +17,13 @@ public:
     // World interface
 
     // TODO: Look into #360 properly
-    virtual void ProcessNextTick(const QVector<Message>& messages) override;
+    virtual void StartTick() override;
+    virtual void ProcessMessage(const Message& messages) override;
+    virtual void FinishTick() override;
 
     virtual void Represent(const QVector<PlayerAndFrame>& frames) const override;
 
+    virtual qint32 GetGameTick() const override;
     virtual quint32 Hash() const override;
 
     virtual void SaveWorld(FastSerializer* data) const override;
@@ -53,7 +56,6 @@ public:
     void AfterMapgen(quint32 id, bool unsync_generation);
 private:
     void RemoveStaleRepresentation();
-    void ProcessInputMessages(const QVector<Message>& messages);
     void ProcessInputMessage(const Message& message);
 
     void PostOoc(const QString& who, const QString& text);
@@ -61,6 +63,8 @@ private:
     void AppendSystemTexts(GrowingFrame* frame) const;
     void AppendSoundsToFrame(GrowingFrame* frame, const VisiblePoints& points, quint32 net_id) const;
     void AppendChatMessages(GrowingFrame* frame, const VisiblePoints& points, quint32 net_id) const;
+
+    void ProcessHearers();
 
     std::unique_ptr<AtmosInterface> atmos_;
     std::unique_ptr<ObjectFactoryInterface> factory_;

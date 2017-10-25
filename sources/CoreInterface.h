@@ -160,10 +160,13 @@ public:
     virtual void SaveWorld(FastSerializer* data) const = 0;
 
     // TODO: Look into #360 properly
-    virtual void ProcessNextTick(const QVector<Message>& messages) = 0;
+    virtual void StartTick() = 0;
+    virtual void ProcessMessage(const Message& messages) = 0;
+    virtual void FinishTick() = 0;
 
     using PlayerAndFrame = std::pair<quint32, GrowingFrame*>;
     virtual void Represent(const QVector<PlayerAndFrame>& frames) const = 0;
+    virtual qint32 GetGameTick() const = 0;
     virtual quint32 Hash() const = 0;
 
 };
