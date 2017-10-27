@@ -1,5 +1,5 @@
 #include "CoreImplementation.h"
-#include "CoreInterface.h"
+#include "core_headers/CoreInterface.h"
 
 #include "AutogenMetadata.h"
 
@@ -102,6 +102,7 @@ void WorldImplementation::ProcessMessage(const Message& message)
 
 void WorldImplementation::FinishTick()
 {
+    GetGlobals()->physics_engine_->ProcessPhysics();
     ProcessHearers();
     GetFactory().ProcessDeletion();
 }
@@ -153,7 +154,7 @@ void WorldImplementation::ProcessInputMessage(const Message& message)
             const quint32 player_id = GetPlayerId(new_id);
             if (player_id != 0)
             {
-                qDebug() << "Client under net_id" << player_id << "already exists";
+                qDebug() << "Client under net_id" << new_id << "already exists";
                 return;
             }
         }
@@ -165,17 +166,16 @@ void WorldImplementation::ProcessInputMessage(const Message& message)
         qDebug() << "New client: " << new_id << mob.Id();
         return;
     }
-    if (message.type == MessageType::OOC_MESSAGE)
+    else if (message.type == MessageType::OOC_MESSAGE)
     {
         const QString login = message.data[key::LOGIN].toString();
         const QString text = message.data[key::TEXT].toString();
         PostOoc(login, text);
         return;
     }
-
-    if (   message.type == MessageType::ORDINARY
-        || message.type == MessageType::MOUSE_CLICK
-        || message.type == MessageType::MESSAGE)
+    else if (   message.type == MessageType::ORDINARY
+             || message.type == MessageType::MOUSE_CLICK
+             || message.type == MessageType::MESSAGE)
     {
         const int net_id = message.data[key::ID].toInt();
         const quint32 game_id = GetPlayerId(net_id);
@@ -193,8 +193,10 @@ void WorldImplementation::ProcessInputMessage(const Message& message)
         {
             kv::Abort(QString("Game object is not valid: %1").arg(net_id));
         }
+        return;
     }
-    // TODO: warning unknown message
+
+    qDebug() << "ProcessInputMessage: Unknown message type:" << message.type;
 }
 
 void WorldImplementation::PostOoc(const QString& who, const QString& text)
@@ -421,6 +423,14 @@ quint32 WorldImplementation::GetNetId(quint32 real_id) const
     return 0;
 }
 
+void WorldImplementation::PerformUnsync()
+{
+    if (global_objects_->unsync_generator.IsValid())
+    {
+        global_objects_->unsync_generator->PerformUnsync();
+    }
+}
+
 void WorldImplementation::AddSound(const QString& name, const Position position)
 {
     sounds_for_frame_.append({position, name});
@@ -442,7 +452,7 @@ void WorldImplementation::PrepareToMapgen()
     global_objects_->random = GetFactory().CreateImpl(kv::SynchronizedRandom::GetTypeStatic());
     global_objects_->physics_engine_ = GetFactory().CreateImpl(kv::PhysicsEngine::GetTypeStatic());
 
-    quint32 seed = static_cast<quint32>(qrand());
+    const quint32 seed = static_cast<quint32>(qrand());
     global_objects_->random->SetParams(seed, 0);
 }
 
@@ -456,13 +466,11 @@ void WorldImplementation::AfterMapgen(const quint32 id, const bool unsync_genera
             = GetFactory().CreateImpl(UnsyncGenerator::GetTypeStatic());
     }
 
-    for (auto it = GetFactory().GetIdTable().begin();
-              it != GetFactory().GetIdTable().end();
-            ++it)
+    for (ObjectInfo info : GetFactory().GetIdTable())
     {
-        if (it->object && (it->object->GetTypeIndex() == SpawnPoint::GetTypeIndexStatic()))
+        if (info.object && (info.object->GetTypeIndex() == SpawnPoint::GetTypeIndexStatic()))
         {
-            global_objects_->lobby->AddSpawnPoint(it->object->GetId());
+            global_objects_->lobby->AddSpawnPoint(info.object->GetId());
         }
     }
 
