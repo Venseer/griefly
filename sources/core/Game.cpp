@@ -25,12 +25,12 @@
 #include "Version.h"
 
 #include "net/Network2.h"
-#include "net/NetworkMessagesTypes.h"
 #include "representation/Representation.h"
 
 #include "representation/Screen.h"
 
 #include <QCoreApplication>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QByteArray>
 #include <QUuid>
@@ -40,7 +40,8 @@
 using namespace kv;
 
 Game::Game(Representation* representation)
-    : representation_(representation)
+    : representation_(representation),
+      nodraw_(false)
 {
     process_messages_ns_ = 0;
     foreach_process_ns_ = 0;
@@ -72,7 +73,7 @@ Game::Game(Representation* representation)
     for (quint32 i = 0; i < messages_log_.size(); ++i)
     {
         messages_log_[i].type = 0;
-        messages_log_[i].json.append("(empty)");
+        messages_log_[i].data.insert("empty", "empty");
     }
     log_pos_ = 0;
 
@@ -98,6 +99,8 @@ void Game::Process()
 
     int cpu_consumed_ms = 0;
 
+    nodraw_ = GetParamsHolder().GetParamBool("-nodraw");
+
     while (true)
     {
         Network2::GetInstance().WaitForMessageAvailable();
@@ -112,18 +115,14 @@ void Game::Process()
 
         ProcessInputMessages();
 
-        const int ATMOS_OFTEN = 1;
-        const int ATMOS_MOVE_OFTEN = 1;
-
         if (process_in_)
         {
             QElapsedTimer timer;
 
             world_->StartTick();
-            for (const Message &message : messages_to_process_)
+            for (const Message& message : messages_to_process_)
             {
-                const QJsonObject object = Network2::ParseJson(message);
-                world_->ProcessMessage({message.type, object});
+                world_->ProcessMessage(message);
             }
             messages_to_process_.clear();
             world_->FinishTick();
@@ -245,20 +244,20 @@ void Game::ProcessInputMessages()
 {
     while (Network2::GetInstance().IsMessageAvailable())
     {
-        Message msg = Network2::GetInstance().PopMessage();
+        ::Message msg = Network2::GetInstance().PopMessage();
 
         AddMessageToMessageLog(msg);
 
-        if (msg.type == MessageType::NEW_TICK)
+        if (msg.type == message_type::NEW_TICK)
         {
             process_in_ = true;
             break;
         }
-        if (msg.type == MessageType::MAP_UPLOAD)
+        if (msg.type == message_type::MAP_UPLOAD)
         {
             QElapsedTimer timer;
             timer.start();
-            QJsonObject obj = Network2::ParseJson(msg);
+            QJsonObject obj = msg.data;
             QString map_url = obj["url_to_upload_map"].toString();
 
             QJsonValue tick_v = obj["tick"];
@@ -284,31 +283,24 @@ void Game::ProcessInputMessages()
             continue;
         }
 
-        if (msg.type == MessageType::REQUEST_HASH)
+        if (msg.type == message_type::REQUEST_HASH)
         {
             const quint32 hash = world_->Hash();
             const qint32 game_tick = world_->GetGameTick();
 
             Message msg;
 
-            msg.type = MessageType::HASH_MESSAGE;
-            msg.json.append(
-                      "{\"hash\":"
-                    + QString::number(hash)
-                    + ",\"tick\":"
-                    + QString::number(game_tick)
-                    + "}");
+            msg.type = message_type::HASH_MESSAGE;
+            msg.data = {{"hash", static_cast<double>(hash)}, {"tick", game_tick}};
 
-            Network2::GetInstance().SendMsg(msg);
+            Network2::GetInstance().Send(msg);
 
             continue;
         }
 
-        if (msg.type == MessageType::PING)
+        if (msg.type == message_type::PING)
         {
-            QJsonObject obj = Network2::ParseJson(msg);
-
-            QString ping_id = obj["ping_id"].toString();
+            QString ping_id = msg.data["ping_id"].toString();
 
             if (ping_id != ping_id_)
             {
@@ -319,45 +311,44 @@ void Game::ProcessInputMessages()
             ping_send_is_requested_ = true;
             continue;
         }
-        if (msg.type == MessageType::CURRENT_CONNECTIONS)
+        if (msg.type == message_type::CURRENT_CONNECTIONS)
         {
-            QJsonObject obj = Network2::ParseJson(msg);
-            QJsonValue amount_v = obj["amount"];
+            QJsonValue amount_v = msg.data["amount"];
             current_connections_ = amount_v.toVariant().toInt();
             continue;
         }
 
-        if (msg.type == MessageType::CLIENT_IS_OUT_OF_SYNC)
+        if (msg.type == message_type::CLIENT_IS_OUT_OF_SYNC)
         {
             emit insertHtmlIntoChat("The client is out of sync, so the server will drop the connection. Try to reconnect.");
             continue;
         }
-        if (msg.type == MessageType::CLIENT_TOO_SLOW)
+        if (msg.type == message_type::CLIENT_TOO_SLOW)
         {
             emit insertHtmlIntoChat("The client is too slow, so the server will drop the connection. Try to reconnect.");
             continue;
         }
-        if (msg.type == MessageType::SERVER_IS_RESTARTING)
+        if (msg.type == message_type::SERVER_IS_RESTARTING)
         {
             emit insertHtmlIntoChat("The server is restarting, so the connection will be dropped. Try to reconnect.");
             continue;
         }
-        if (msg.type == MessageType::EXIT_SERVER)
+        if (msg.type == message_type::EXIT_SERVER)
         {
             emit insertHtmlIntoChat("The server is near to exit, so it will drop the connection. Try to reconnect.");
             continue;
         }  
-        if (   msg.type == MessageType::ORDINARY
-            || msg.type == MessageType::MOUSE_CLICK
-            || msg.type == MessageType::MESSAGE
-            || msg.type == MessageType::NEW_CLIENT
-            || msg.type == MessageType::OOC_MESSAGE)
+        if (   msg.type == message_type::ORDINARY
+            || msg.type == message_type::MOUSE_CLICK
+            || msg.type == message_type::MESSAGE
+            || msg.type == message_type::NEW_CLIENT
+            || msg.type == message_type::OOC_MESSAGE)
         {
             messages_to_process_.push_back(msg);
             continue;
         }
 
-        qDebug() << "Unhandled message, type: " << msg.type << ", json: " << msg.json;
+        qDebug() << "Unhandled message, type: " << msg.type << ", json: " << msg.data;
         // TODO: other stuff
     }
 }
@@ -366,8 +357,11 @@ void Game::GenerateFrame()
 {
     AppendSystemTexts();
 
-    kv::GrowingFrame frame = representation_->GetGrowingFrame();
-    world_->Represent({{mob_, &frame}});
+    if (!nodraw_)
+    {
+        kv::GrowingFrame frame = representation_->GetGrowingFrame();
+        world_->Represent({{mob_, &frame}});
+    }
 
     representation_->Swap();
 }
@@ -426,11 +420,12 @@ void Game::AddLastMessages(QByteArray* data)
              i = (i + 1) % messages_log_.size())
     {
         data->append(QByteArray::number(messages_log_[i].type) + " ");
-        data->append(messages_log_[i].json + '\n');
+        QJsonDocument document(messages_log_[i].data);
+        data->append(document.toJson(QJsonDocument::Compact) + '\n');
     }
 }
 
-void Game::AddMessageToMessageLog(Message message)
+void Game::AddMessageToMessageLog(::Message message)
 {
     messages_log_[log_pos_] = message;
     log_pos_ = (log_pos_ + 1) % messages_log_.size();

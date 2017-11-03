@@ -17,7 +17,7 @@
 #include "qtopengl.h"
 
 #include "net/Network2.h"
-#include "net/NetworkMessagesTypes.h"
+#include "core_headers/Messages.h"
 
 #include <QDebug>
 #include <QString>
@@ -138,11 +138,6 @@ void MainForm::startGameLoop(int id, QString map)
 {
     ui->widget->show();
     on_splitter_splitterMoved(0, 0);
-
-    if (GetParamsHolder().GetParamBool("-nodraw"))
-    {
-        NODRAW = true;
-    }
 
     if (GetParamsHolder().GetParamBool("-max_fps"))
     {
@@ -399,9 +394,9 @@ void MainForm::on_command_line_edit_returnPressed()
     if (text == "/restart_round")
     {
         qDebug() << "Restart round message will be sended to the server...";
-        Message message;
-        message.type = MessageType::RESTART_ROUND;
-        Network2::GetInstance().SendMsg(message);
+        kv::Message message;
+        message.type = kv::message_type::RESTART_ROUND;
+        Network2::GetInstance().Send(message);
         return;
     }
     if (text.startsWith("/next_tick"))
@@ -421,21 +416,21 @@ void MainForm::on_command_line_edit_returnPressed()
         qDebug() <<
             QString("%1 nexttick messages will be sended to the server...")
                 .arg(count);
-        Message message;
-        message.type = MessageType::NEXT_TICK;
+        kv::Message message;
+        message.type = kv::message_type::NEXT_TICK;
         for (int i = 0; i < count; ++i)
         {
-            Network2::GetInstance().SendMsg(message);
+            Network2::GetInstance().Send(message);
         }
         return;
     }
 
-    Message message;
-    message.type = MessageType::MESSAGE;
+    kv::Message message;
+    message.type = kv::message_type::MESSAGE;
     QJsonObject object;
     if (IsOOCMessage(text))
     {
-        message.type = MessageType::OOC_MESSAGE;
+        message.type = kv::message_type::OOC_MESSAGE;
         object["login"] = QString("");
         object["text"] = text.mid(3).trimmed();
     }
@@ -449,10 +444,9 @@ void MainForm::on_command_line_edit_returnPressed()
         return;
     }
 
-    QJsonDocument doc(object);
-    message.json = doc.toJson();
+    message.data = object;
 
-    Network2::GetInstance().SendMsg(message);
+    Network2::GetInstance().Send(message);
 }
 
 void MainForm::on_splitter_splitterMoved(int, int)

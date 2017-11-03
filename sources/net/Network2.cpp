@@ -13,14 +13,9 @@
 
 #include <QCoreApplication>
 
-#include "NetworkMessagesTypes.h"
 #include "Version.h"
 
-QJsonObject Network2::ParseJson(Message message)
-{
-    QJsonDocument doc = QJsonDocument::fromJson(message.json);
-    return doc.object();
-}
+using kv::Message;
 
 bool Network2::IsKey(const QJsonObject& json, const QString& key)
 {
@@ -33,57 +28,46 @@ bool Network2::IsKey(const QJsonObject& json, const QString& key)
 
 quint32 Network2::ExtractObjId(const QJsonObject &json)
 {
-    QJsonValue val = json["obj"];
-
-    return val.toVariant().toInt();
+    return json["obj"].toInt();
 }
 
 QString Network2::ExtractAction(const QJsonObject &json)
 {
-    QJsonValue val = json["action"];
-
-    return val.toVariant().toString();
+    return json["action"].toString();
 }
 
-Message Network2::MakeClickMessage(int object_id, QString click_type)
+Message Network2::MakeClickMessage(int object_id, const QString& click_type)
 {
-    Message msg;
+    Message message;
 
-    msg.type = MessageType::MOUSE_CLICK;
+    message.type = kv::message_type::MOUSE_CLICK;
+    message.data = {{"action", click_type}, {"obj", object_id}};
 
-    QJsonObject obj;
-    obj.insert("action", click_type);
-
-    QJsonValue value(object_id);
-    obj.insert("obj", value);
-    QJsonDocument doc(obj);
-    msg.json = doc.toJson(QJsonDocument::Compact);
-
-    return msg;
+    return message;
 }
 
-Network2 &Network2::GetInstance()
+Network2& Network2::GetInstance()
 {
     static Network2* network = new Network2;
     return *network;
 }
 
-bool Network2::IsGood()
+bool Network2::IsGood() const
 {
     return is_good_;
 }
 
-void Network2::sendMap(QString url, QByteArray data)
+void Network2::sendMap(const QString& url, const QByteArray& data_raw)
 {
     QString type_header = "application/octet-stream";
+    QByteArray data = data_raw;
     if (prefer_compress_)
     {
         type_header = "application/zip";
         data = qCompress(data);
     }
 
-    QUrl send_url(url);
-    QNetworkRequest request(send_url);
+    QNetworkRequest request(QUrl{url});
     request.setHeader(QNetworkRequest::ContentLengthHeader, data.length());
     request.setHeader(QNetworkRequest::ContentTypeHeader, type_header);
 
@@ -112,33 +96,34 @@ Network2::Network2()
     connect(this, &Network2::disconnectRequested, &handler_, &SocketHandler::disconnectSocket);
 }
 
-void Network2::TryConnect(QString host, int port, QString login, QString password)
+void Network2::TryConnect(
+    const QString& host, int port, const QString& login, const QString& password)
 {
     thread_.start();
     emit connectRequested(host, port, login, password);
 }
 
-void Network2::SendMsg(Message message)
+void Network2::Send(const kv::Message& message)
 {
     emit sendMessage(message);
 }
 
-void Network2::SendOrdinaryMessage(QString text)
+void Network2::SendOrdinaryMessage(const QString& text)
 {
-    Message msg;
-    msg.type = MessageType::ORDINARY;
-    msg.json.append("{\"key\":\"" + text + "\"}");
+    Message message;
+    message.type = kv::message_type::ORDINARY;
+    message.data = {{"key", text}};
 
-    SendMsg(msg);
+    Send(message);
 }
 
-void Network2::SendPing(QString ping_id)
+void Network2::SendPing(const QString& ping_id)
 {
-    Message msg;
-    msg.type = MessageType::PING;
-    msg.json.append("{\"ping_id\":\"" + ping_id + "\"}");
+    Message message;
+    message.type = kv::message_type::PING;
+    message.data = {{"ping_id", ping_id}};
 
-    SendMsg(msg);
+    Send(message);
 }
 
 void Network2::Disconnect()
@@ -147,13 +132,13 @@ void Network2::Disconnect()
     thread_.wait();
 }
 
-bool Network2::IsMessageAvailable()
+bool Network2::IsMessageAvailable() const
 {
     QMutexLocker locker(&queue_mutex_);
     return received_messages_.size() > 0;
 }
 
-void Network2::WaitForMessageAvailable()
+void Network2::WaitForMessageAvailable() const
 {
     QMutexLocker locker(&queue_mutex_);
 
@@ -169,19 +154,19 @@ Message Network2::PopMessage()
     return received_messages_.dequeue();
 }
 
-void Network2::PushMessage(Message message)
+void Network2::PushMessage(const kv::Message& message)
 {
     QMutexLocker locker(&queue_mutex_);
     received_messages_.enqueue(message);
     queue_wait_.wakeOne();
 }
 
-QByteArray Network2::GetMapData()
+QByteArray Network2::GetMapData() const
 {
     return map_data_;
 }
 
-void Network2::onConnectionEnd(QString reason)
+void Network2::onConnectionEnd(const QString& reason)
 {
     is_good_ = false;
     emit connectionFailed(reason);
@@ -218,7 +203,7 @@ void Network2::mapDownloaded(QNetworkReply* reply)
     emit connectionSuccess(your_id_, "map_buffer");
 }
 
-void Network2::downloadMap(int your_id, QString map)
+void Network2::downloadMap(int your_id, const QString& map)
 {
     your_id_ = your_id;
     map_url_ = map;
@@ -231,10 +216,8 @@ void Network2::downloadMap(int your_id, QString map)
 
     qDebug() << "Begin download map from " << map_url_;
 
-    QUrl url(map);
-    QNetworkRequest r(url);
-
-    net_manager_->get(r);
+    const QNetworkRequest request(QUrl{map_url_});
+    net_manager_->get(request);
 }
 
 SocketHandler::SocketHandler(Network2* network)
@@ -262,7 +245,7 @@ void SocketHandler::process()
 
 void SocketHandler::handleNewData()
 {
-    QByteArray new_data = socket_.readAll();
+    const QByteArray new_data = socket_.readAll();
     buffer_.append(new_data);
 
     bool is_continue = true;
@@ -315,10 +298,16 @@ bool SocketHandler::HandleBody()
     Message new_message;
     new_message.type = message_type_;
 
-    new_message.json.append(
+    QByteArray data;
+    data.append(
         &buffer_.constData()[buffer_pos_],
         message_size_);
     buffer_pos_ += message_size_;
+
+    // Dont check validation because server should always send correct json
+    // TODO: check anyway?
+    QJsonDocument document = QJsonDocument::fromJson(data);
+    new_message.data = document.object();
 
     if (is_first_message_)
     {
@@ -335,7 +324,8 @@ bool SocketHandler::HandleBody()
 }
 
 
-void SocketHandler::tryConnect(QString host, int port, QString login, QString password)
+void SocketHandler::tryConnect(
+    const QString& host, int port, const QString& login, const QString& password)
 {
     login_ = login;
     password_ = password;
@@ -349,7 +339,6 @@ void SocketHandler::tryConnect(QString host, int port, QString login, QString pa
 
 void SocketHandler::socketConnected()
 {
-
     qDebug() << "socketConnected()";
     // TCP_NODELAY
     socket_.setSocketOption(QAbstractSocket::LowDelayOption, 1);
@@ -357,32 +346,31 @@ void SocketHandler::socketConnected()
     SendData("S132");
 
     Message login_message;
-    login_message.type = MessageType::INITAL_LOGIN_MESSAGE;
+    login_message.type = kv::message_type::INITAL_LOGIN_MESSAGE;
 
-    QJsonObject obj;
-    obj["login"] = login_;
-    obj["password"] = password_;
+    QJsonObject object;
+    object["login"] = login_;
+    object["password"] = password_;
 
     // It is compile time macro with version (/D or -D)
-    obj["game_version"] = QString(GetGameVersion());
+    object["game_version"] = QString(GetGameVersion());
 
-    bool is_guest = (login_ == "Guest");
-    obj["guest"] = is_guest;
+    const bool is_guest = (login_ == "Guest");
+    object["guest"] = is_guest;
 
-    QJsonDocument doc(obj);
+    login_message.data = object;
 
-    login_message.json = doc.toJson();
-
-    qDebug() << login_message.json;
+    qDebug() << login_message.data;
 
     sendMessage(login_message);
 
     state_ = NetworkState::CONNECTED;
 }
 
-void SocketHandler::sendMessage(Message message)
+void SocketHandler::sendMessage(const kv::Message& message)
 {
-    QByteArray& json = message.json;
+    const QJsonDocument document(message.data);
+    const QByteArray json = document.toJson(QJsonDocument::Compact);
 
     QByteArray data;
 
@@ -418,52 +406,50 @@ void SocketHandler::errorSocket(QAbstractSocket::SocketError error)
             .arg(possible_error_reason_));
 }
 
-void SocketHandler::handleFirstMessage(Message m)
+void SocketHandler::handleFirstMessage(const kv::Message& message)
 {
-    switch (m.type)
+    using namespace kv;
+
+    switch (message.type)
     {
-    case MessageType::WRONG_GAME_VERSION:
+    case message_type::WRONG_GAME_VERSION:
         qDebug() << "Wrong game version";
-        qDebug() << m.json;
-        possible_error_reason_ = "Wrong game version: " + m.json;
+        qDebug() << message.data;
+        possible_error_reason_ = "Wrong game version: " + message.data["correct_game_version"].toString();
         break;
-    case MessageType::WRONG_AUTHENTICATION:
+    case message_type::WRONG_AUTHENTICATION:
         qDebug() << "Wrong authentication";
-        qDebug() << m.json;
+        qDebug() << message.data;
         possible_error_reason_ = "Wrong authentication";
         break;
-    case MessageType::SUCCESS_CONNECTION:
+    case message_type::SUCCESS_CONNECTION:
         qDebug() << "Success";
-        qDebug() << m.json;
-        HandleSuccessConnection(m);
+        qDebug() << message.data;
+        HandleSuccessConnection(message);
         break;
-    case MessageType::MASTER_CLIENT_IS_NOT_CONNECTED:
+    case message_type::MASTER_CLIENT_IS_NOT_CONNECTED:
         qDebug() << "Master client is not connected";
         possible_error_reason_ = "Master client is not connected";
         break;
-    case MessageType::INTERNAL_SERVER_ERROR:
+    case message_type::INTERNAL_SERVER_ERROR:
         qDebug() << "The server experiences some internal troubles";
-        possible_error_reason_ = "The server experiences some internal troubles: " + m.json;
+        possible_error_reason_ = "The server experiences some internal troubles: " + message.data["message"].toString();
         break;
     default:
-        qDebug() << "Unknown message type: " << m.type;
-        qDebug() << m.json;
+        qDebug() << "Unknown message type: " << message.type;
+        qDebug() << message.data;
         possible_error_reason_ = "Unknown message type";
         break;
     }
 }
 
-void SocketHandler::HandleSuccessConnection(Message message)
+void SocketHandler::HandleSuccessConnection(const kv::Message& message)
 {
-    QJsonObject obj = Network2::ParseJson(message);
+    qDebug() << message.data["map"];
+    qDebug() << message.data["your_id"];
 
-    qDebug() << obj["map"];
-    qDebug() << obj["your_id"];
-
-    map_ = obj["map"].toString();
-
-    QJsonValue val = obj["your_id"];
-    your_id_ = val.toVariant().toInt();
+    map_ = message.data["map"].toString();
+    your_id_ = message.data["your_id"].toInt();
 
     emit readyToStart(your_id_, map_);
 }

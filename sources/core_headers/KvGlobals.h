@@ -1,29 +1,19 @@
 #pragma once
 
-#include <map>
-#include <cstdio>
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <algorithm>
-
-#include <qglobal.h>
 #include <QString>
-#include <QDebug>
 
-#include "core_headers/FastSerializer.h"
-#include "Hashes.h"
+#include "FastSerializer.h"
+#include "core_headers/Hashes.h"
 
+#ifdef KV_NO_PARANOID
 #ifdef Q_CC_GNU
 #define KV_UNREACHABLE __builtin_unreachable();
 #else
 #define KV_UNREACHABLE
 #endif // Q_CC_GNU
-
-const int SIZE_H_SQ = 12; // visible size const
-const int SIZE_W_SQ = 12;
-
-extern bool NODRAW; // probably nodraw mode
+#else // KV_PARANOID
+#define KV_UNREACHABLE kv::Abort(QString("Unreachable: %1").arg(__func__));
+#endif // KV_PARANOID
 
 enum class Dir : int
 {

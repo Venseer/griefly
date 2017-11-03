@@ -12,7 +12,6 @@
 #include "Ghost.h"
 #include "core/objects/movable/items/Clothes.h"
 #include "core/objects/turfs/Floor.h"
-#include "net/NetworkMessagesTypes.h"
 #include "core/objects/Lobby.h"
 #include "core/Game.h"
 #include "core/objects/movable/items/Gun.h"
@@ -130,9 +129,9 @@ bool Human::TryMove(Dir direct)
     return false;
 }
 
-void Human::ProcessMessage(const WorldInterface::Message& message)
+void Human::ProcessMessage(const Message& message)
 {
-    if (   message.type == MessageType::ORDINARY
+    if (   message.type == message_type::ORDINARY
         && !lying_
         && friction::CombinedFriction(GetTurf()))
     {
@@ -160,7 +159,7 @@ void Human::ProcessMessage(const WorldInterface::Message& message)
             }
         }
     }
-    if (message.type == MessageType::MESSAGE)
+    if (message.type == message_type::MESSAGE)
     {
         QString text = message.data["text"].toString();
         const QString prefixes[] = {"me ", "me", "* ", "*"};
@@ -188,7 +187,7 @@ void Human::ProcessMessage(const WorldInterface::Message& message)
             GetGame().GetChatFrameInfo().PostHear(phrase, GetPosition());
         }
     }
-    else if (message.type == MessageType::MOUSE_CLICK)
+    else if (message.type == message_type::MOUSE_CLICK)
     {
         // TODO: shorter cd when shooting with weapons
         const int ATTACK_CD = 6;

@@ -85,9 +85,9 @@ const QString HUMAN_STATES[HUMAN_STATES_AMOUNT] =
 
 }
 
-void LoginMob::ProcessMessage(const WorldInterface::Message& message)
+void LoginMob::ProcessMessage(const Message& message)
 {
-    if (    message.type == MessageType::ORDINARY
+    if (    message.type == message_type::ORDINARY
          && Network2::IsKey(message.data, LOGIN_CLICK))
     {
         if (GetGame().GetGlobals()->lobby->GetSecondUntilStart() > 0)
