@@ -8,9 +8,8 @@
 #include <QString>
 #include <QVector>
 
-#include "representation/ViewInfo.h"
-
-#include "KvGlobals.h"
+#include "RawViewInfo.h"
+#include "Dir.h"
 #include "Messages.h"
 
 namespace kv
@@ -31,7 +30,7 @@ struct FrameData
             // Nothing
         }
 
-        ViewInfo view;
+        kv::RawViewInfo view;
         quint32 id;
         quint32 click_id;
         int pos_x;
@@ -50,7 +49,7 @@ struct FrameData
             // Nothing
         }
 
-        ViewInfo view;
+        kv::RawViewInfo view;
         QString name;
 
         int pixel_x;
@@ -110,10 +109,7 @@ public:
     GrowingFrame(FrameData* data)
         : frame_data_(data)
     {
-        if (frame_data_ == nullptr)
-        {
-            kv::Abort("GrowingFrame cannot accept nullptr as FrameData!");
-        }
+        // Nothing
     }
     void Append(const FrameData::Entity& entity)
     {
@@ -153,7 +149,8 @@ class WorldInterface
 public:
     virtual ~WorldInterface() { }
 
-    virtual void SaveWorld(FastSerializer* data) const = 0;
+    // TODO: FastSerializer should be able to serialize right into QByteArray
+    virtual QByteArray SaveWorld() const = 0;
 
     // TODO: Look into #360 properly
     virtual void StartTick() = 0;
@@ -175,7 +172,7 @@ public:
     struct ObjectMetadata
     {
         QString name;
-        ViewInfo default_view;
+        RawViewInfo default_view;
     };
     struct Config
     {

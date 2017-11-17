@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core_headers/KvAbort.h"
-#include "core_headers/KvGlobals.h"
-#include "core_headers/Hashes.h"
+#include "core/KvAbort.h"
+#include "core/KvGlobals.h"
+#include "core/Hashes.h"
 
 #include "../FastIsType.h"
 #include "../Idptr.h"

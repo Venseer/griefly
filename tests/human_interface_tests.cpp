@@ -54,11 +54,11 @@ TEST_F(HumanInterfaceTest, Constructor)
 
     ViewInfo view_info;
     interface->AddOverlays(&view_info);
-    EXPECT_EQ(view_info.GetOverlays().size(), 0);
-    EXPECT_EQ(view_info.GetUnderlays().size(), 0);
+    EXPECT_EQ(view_info.GetOverlays().Size(), 0);
+    EXPECT_EQ(view_info.GetUnderlays().Size(), 0);
 
     const ViewInfo empty_view_info;
-    EXPECT_TRUE(ViewInfo::IsSameFramesets(view_info, empty_view_info));
+    EXPECT_EQ(view_info.GetRawData(), empty_view_info.GetRawData());
 }
 
 TEST_F(HumanInterfaceTest, PickDropItem)

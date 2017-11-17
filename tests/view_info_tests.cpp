@@ -2,132 +2,217 @@
 
 #include <gtest/gtest.h>
 
-TEST(FramesetInfo, SettersAndGetters)
+TEST(ConstFramesetInfo, Getters)
 {
-    ViewInfo::FramesetInfo frameset_info;
-    ASSERT_EQ(frameset_info.GetSprite(), "");
-    ASSERT_EQ(frameset_info.GetState(), "");
-    ASSERT_EQ(frameset_info.GetAngle(), 0);
-    ASSERT_EQ(frameset_info.GetShiftX(), 0);
-    ASSERT_EQ(frameset_info.GetShiftY(), 0);
+    kv::RawViewInfo::RawFramesetInfo raw_info;
 
-    frameset_info.SetSprite("something");
-    ASSERT_EQ(frameset_info.GetSprite(), "something");
-    ASSERT_EQ(frameset_info.GetState(), "");
-    ASSERT_EQ(frameset_info.GetAngle(), 0);
-    ASSERT_EQ(frameset_info.GetShiftX(), 0);
-    ASSERT_EQ(frameset_info.GetShiftY(), 0);
+    ViewInfo::ConstFramesetInfo frameset_info(&raw_info);
+    EXPECT_EQ(frameset_info.GetSprite(), "");
+    EXPECT_EQ(frameset_info.GetState(), "");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
 
-    frameset_info.SetState("11112");
-    ASSERT_EQ(frameset_info.GetSprite(), "something");
-    ASSERT_EQ(frameset_info.GetState(), "11112");
-    ASSERT_EQ(frameset_info.GetAngle(), 0);
-    ASSERT_EQ(frameset_info.GetShiftX(), 0);
-    ASSERT_EQ(frameset_info.GetShiftY(), 0);
+    raw_info.sprite_name = "something";
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
 
-    frameset_info.SetAngle(42);
-    ASSERT_EQ(frameset_info.GetSprite(), "something");
-    ASSERT_EQ(frameset_info.GetState(), "11112");
-    ASSERT_EQ(frameset_info.GetAngle(), 42);
-    ASSERT_EQ(frameset_info.GetShiftX(), 0);
-    ASSERT_EQ(frameset_info.GetShiftY(), 0);
+    raw_info.state = "11112";
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "11112");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
 
-    frameset_info.SetShift(11, 22);
-    ASSERT_EQ(frameset_info.GetSprite(), "something");
-    ASSERT_EQ(frameset_info.GetState(), "11112");
-    ASSERT_EQ(frameset_info.GetAngle(), 42);
-    ASSERT_EQ(frameset_info.GetShiftX(), 11);
-    ASSERT_EQ(frameset_info.GetShiftY(), 22);
+    raw_info.angle = 42;
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "11112");
+    EXPECT_EQ(frameset_info.GetAngle(), 42);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
+
+    raw_info.shift_x = 11;
+    raw_info.shift_y = 22;
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "11112");
+    EXPECT_EQ(frameset_info.GetAngle(), 42);
+    EXPECT_EQ(frameset_info.GetShiftX(), 11);
+    EXPECT_EQ(frameset_info.GetShiftY(), 22);
 }
 
-TEST(FramesetInfo, IsSameSprites)
+TEST(ConstFramesetInfo, FramesetInfoConstructor)
 {
-    ViewInfo::FramesetInfo frameset_info1;
-    ASSERT_TRUE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info1));
+    kv::RawViewInfo::RawFramesetInfo raw_info;
+
+    ViewInfo::FramesetInfo frameset_info(&raw_info);
+    ViewInfo::ConstFramesetInfo const_frameset_info(frameset_info);
+
+    frameset_info.SetSprite("lion");
+    EXPECT_EQ(const_frameset_info.GetSprite(), "lion");
+
+    frameset_info.SetState("tiger");
+    EXPECT_EQ(const_frameset_info.GetState(), "tiger");
+
+    frameset_info.SetAngle(4);
+    EXPECT_EQ(const_frameset_info.GetAngle(), 4);
+
+    frameset_info.SetShift(-1, -2);
+    EXPECT_EQ(const_frameset_info.GetShiftX(), -1);
+    EXPECT_EQ(const_frameset_info.GetShiftY(), -2);
+}
+
+TEST(FramesetInfo, Constructor)
+{
+    kv::RawViewInfo::RawFramesetInfo raw_info;
+
+    ViewInfo::FramesetInfo frameset_info(&raw_info);
+    EXPECT_EQ(frameset_info.GetSprite(), "");
+    EXPECT_EQ(frameset_info.GetState(), "");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
+
+    raw_info.sprite_name = "test";
+    raw_info.state = "state";
+    raw_info.angle = 42;
+    raw_info.shift_x = 11;
+    raw_info.shift_y = -1;
+
+    EXPECT_EQ(frameset_info.GetSprite(), "test");
+    EXPECT_EQ(frameset_info.GetState(), "state");
+    EXPECT_EQ(frameset_info.GetAngle(), 42);
+    EXPECT_EQ(frameset_info.GetShiftX(), 11);
+    EXPECT_EQ(frameset_info.GetShiftY(), -1);
+}
+
+TEST(FramesetInfo, SettersAndGetters)
+{
+    kv::RawViewInfo::RawFramesetInfo raw_info;
+
+    ViewInfo::FramesetInfo frameset_info(&raw_info);
+    EXPECT_EQ(frameset_info.GetSprite(), "");
+    EXPECT_EQ(frameset_info.GetState(), "");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
+
+    frameset_info.SetSprite("something");
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
+
+    frameset_info.SetState("11112");
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "11112");
+    EXPECT_EQ(frameset_info.GetAngle(), 0);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
+
+    frameset_info.SetAngle(42);
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "11112");
+    EXPECT_EQ(frameset_info.GetAngle(), 42);
+    EXPECT_EQ(frameset_info.GetShiftX(), 0);
+    EXPECT_EQ(frameset_info.GetShiftY(), 0);
+
+    frameset_info.SetShift(11, 22);
+    EXPECT_EQ(frameset_info.GetSprite(), "something");
+    EXPECT_EQ(frameset_info.GetState(), "11112");
+    EXPECT_EQ(frameset_info.GetAngle(), 42);
+    EXPECT_EQ(frameset_info.GetShiftX(), 11);
+    EXPECT_EQ(frameset_info.GetShiftY(), 22);
+}
+
+// TODO: tests for representation?
+/*TEST(FramesetInfo, IsSameSprites)
+{
+    kv::RawViewInfo::RawFramesetInfo raw_info1;
+    ViewInfo::FramesetInfo frameset_info1(&raw_info1);
+    EXPECT_TRUE(ViewInfo::IsSameSprites(frameset_info1, frameset_info1));
 
     frameset_info1.SetSprite("sprite");
     frameset_info1.SetState("state");
     frameset_info1.SetAngle(42);
     frameset_info1.SetShift(420, 420);
-    ASSERT_TRUE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info1));
+    EXPECT_TRUE(ViewInfo::IsSameSprites(frameset_info1, frameset_info1));
 
-    ViewInfo::FramesetInfo frameset_info2;
-    ASSERT_FALSE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));
+    kv::RawViewInfo::RawFramesetInfo raw_info2;
+    ViewInfo::FramesetInfo frameset_info2(&raw_info2);
+    EXPECT_FALSE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
 
     frameset_info2.SetSprite("sprite");
     frameset_info2.SetState("state");
     frameset_info2.SetAngle(42);
     frameset_info2.SetShift(420, 420);
-    ASSERT_TRUE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));    
+    EXPECT_TRUE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
 
     frameset_info2.SetSprite("sprite2");
-    ASSERT_FALSE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));
+    EXPECT_FALSE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
 
     frameset_info2.SetSprite("sprite");
     frameset_info2.SetState("state2");
-    ASSERT_FALSE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));
+    EXPECT_FALSE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
 
     frameset_info2.SetState("state");
     frameset_info2.SetAngle(43);
-    ASSERT_FALSE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));
+    EXPECT_FALSE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
 
     frameset_info2.SetAngle(42);
     frameset_info2.SetShift(1, 420);
-    ASSERT_FALSE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));
+    EXPECT_FALSE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
 
     frameset_info2.SetShift(420, 1);
-    ASSERT_FALSE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info1, frameset_info2));
-}
+    EXPECT_FALSE(ViewInfo::IsSameSprites(frameset_info1, frameset_info2));
+}*/
 
-TEST(FramesetInfo, StreamOperators)
+TEST(RawFramesetInfo, StreamOperators)
 {
-    ViewInfo::FramesetInfo frameset_info;
-    frameset_info.SetSprite("sprite 1");
-    frameset_info.SetState("state 2");
-    frameset_info.SetAngle(84);
-    frameset_info.SetShift(12, 13);
+    kv::RawViewInfo::RawFramesetInfo frameset_info;
+    frameset_info.sprite_name = "sprite 1";
+    frameset_info.state = "state 2";
+    frameset_info.angle = 84;
+    frameset_info.shift_x = 12;
+    frameset_info.shift_y = 13;
 
     kv::FastSerializer serialzier(1);
     serialzier << frameset_info;
 
     kv::FastDeserializer deserializer(serialzier.GetData(), serialzier.GetIndex());
 
-    ViewInfo::FramesetInfo frameset_info2;
+    kv::RawViewInfo::RawFramesetInfo frameset_info2;
     deserializer >> frameset_info2;
-    EXPECT_EQ(frameset_info2.GetSprite(), "sprite 1");
-    EXPECT_EQ(frameset_info2.GetState(), "state 2");
-    EXPECT_EQ(frameset_info2.GetAngle(), 84);
-    EXPECT_EQ(frameset_info2.GetShiftX(), 12);
-    EXPECT_EQ(frameset_info2.GetShiftY(), 13);
-
-    {
-        kv::FastSerializer serializer(1);
-        serializer << frameset_info;
-        kv::FastDeserializer deserializer(serializer.GetData(), serializer.GetIndex());
-        ViewInfo::FramesetInfo frameset_info3;
-        deserializer >> frameset_info3;
-        EXPECT_TRUE(ViewInfo::FramesetInfo::IsSameSprites(frameset_info, frameset_info3));
-    }
+    EXPECT_EQ(frameset_info2.sprite_name, "sprite 1");
+    EXPECT_EQ(frameset_info2.state, "state 2");
+    EXPECT_EQ(frameset_info2.angle, 84);
+    EXPECT_EQ(frameset_info2.shift_x, 12);
+    EXPECT_EQ(frameset_info2.shift_y, 13);
 }
 
-TEST(FramesetInfo, Hash)
+TEST(RawFramesetInfo, Hash)
 {
-    ViewInfo::FramesetInfo frameset_info;
+    kv::RawViewInfo::RawFramesetInfo frameset_info;
     ASSERT_EQ(Hash(frameset_info), 2);
 
-    frameset_info.SetSprite("sprite 1");
+    frameset_info.sprite_name = "sprite 1";
     ASSERT_EQ(Hash(frameset_info), 2014229692);
 
-    frameset_info.SetState("state 2");
+    frameset_info.state = "state 2";
     ASSERT_EQ(Hash(frameset_info), 230996800);
 
-    frameset_info.SetAngle(84);
+    frameset_info.angle = 84;
     ASSERT_EQ(Hash(frameset_info), 230996884);
 
-    frameset_info.SetShift(0, 13);
+    frameset_info.shift_x = 0;
+    frameset_info.shift_y = 13;
     ASSERT_EQ(Hash(frameset_info), 230996897);
 
-    frameset_info.SetShift(14, 13);
+    frameset_info.shift_x = 14;
+    frameset_info.shift_y = 13;
     ASSERT_EQ(Hash(frameset_info), 230996911);
 }
 
@@ -165,59 +250,62 @@ TEST(ViewInfo, AngleAndBaseFrameset)
 TEST(ViewInfo, OverlaysAndUnderlays)
 {
     ViewInfo view_info;
-    ASSERT_EQ(view_info.GetOverlays().size(), 0);
-    ASSERT_EQ(view_info.GetUnderlays().size(), 0);
+    ASSERT_EQ(view_info.GetOverlays().Size(), 0);
+    ASSERT_EQ(view_info.GetUnderlays().Size(), 0);
 
     {
-        ViewInfo::FramesetInfo& overlay
+        ViewInfo::FramesetInfo overlay
             = view_info.AddOverlay("bom bom", "bim bom");
-        ASSERT_EQ(view_info.GetOverlays().size(), 1);
-        ASSERT_EQ(view_info.GetUnderlays().size(), 0);
-        ASSERT_EQ(view_info.GetOverlays()[0].GetSprite(), "bom bom");
-        ASSERT_EQ(view_info.GetOverlays()[0].GetState(), "bim bom");
-        ASSERT_EQ(&view_info.GetOverlays()[0], &overlay);
+        ASSERT_EQ(view_info.GetOverlays().Size(), 1);
+        ASSERT_EQ(view_info.GetUnderlays().Size(), 0);
+        EXPECT_EQ(view_info.GetOverlays()[0].GetSprite(), "bom bom");
+        EXPECT_EQ(view_info.GetOverlays()[0].GetState(), "bim bom");
+        overlay.SetSprite("not bim bom");
+        overlay.SetState("not bom bom");
+        EXPECT_EQ(view_info.GetOverlays()[0].GetSprite(), "not bim bom");
+        EXPECT_EQ(view_info.GetOverlays()[0].GetState(), "not bom bom");
     }
 
     {
-        ViewInfo::FramesetInfo& overlay
-            = view_info.AddOverlay("bom bom2", "bim bom2");
-        ASSERT_EQ(view_info.GetOverlays().size(), 2);
-        ASSERT_EQ(view_info.GetUnderlays().size(), 0);
-        ASSERT_EQ(view_info.GetOverlays()[1].GetSprite(), "bom bom2");
-        ASSERT_EQ(view_info.GetOverlays()[1].GetState(), "bim bom2");
-        ASSERT_EQ(&view_info.GetOverlays()[1], &overlay);
+        view_info.AddOverlay("bom bom2", "bim bom2");
+        ASSERT_EQ(view_info.GetOverlays().Size(), 2);
+        ASSERT_EQ(view_info.GetUnderlays().Size(), 0);
+        EXPECT_EQ(view_info.GetOverlays()[1].GetSprite(), "bom bom2");
+        EXPECT_EQ(view_info.GetOverlays()[1].GetState(), "bim bom2");
     }
 
     {
-        ViewInfo::FramesetInfo& underlay
+        ViewInfo::FramesetInfo underlay
             = view_info.AddUnderlay("image", "state");
-        ASSERT_EQ(view_info.GetOverlays().size(), 2);
-        ASSERT_EQ(view_info.GetUnderlays().size(), 1);
-        ASSERT_EQ(view_info.GetUnderlays()[0].GetSprite(), "image");
-        ASSERT_EQ(view_info.GetUnderlays()[0].GetState(), "state");
-        ASSERT_EQ(&view_info.GetUnderlays()[0], &underlay);
+        ASSERT_EQ(view_info.GetOverlays().Size(), 2);
+        ASSERT_EQ(view_info.GetUnderlays().Size(), 1);
+        EXPECT_EQ(view_info.GetUnderlays()[0].GetSprite(), "image");
+        EXPECT_EQ(view_info.GetUnderlays()[0].GetState(), "state");
+        underlay.SetSprite("image2");
+        underlay.SetState("state2");
+        EXPECT_EQ(view_info.GetUnderlays()[0].GetSprite(), "image2");
+        EXPECT_EQ(view_info.GetUnderlays()[0].GetState(), "state2");
     }
 
     {
-        ViewInfo::FramesetInfo& underlay
-            = view_info.AddUnderlay("image2", "state2");
-        ASSERT_EQ(view_info.GetOverlays().size(), 2);
-        ASSERT_EQ(view_info.GetUnderlays().size(), 2);
-        ASSERT_EQ(view_info.GetUnderlays()[1].GetSprite(), "image2");
-        ASSERT_EQ(view_info.GetUnderlays()[1].GetState(), "state2");
-        ASSERT_EQ(&view_info.GetUnderlays()[1], &underlay);
+        view_info.AddUnderlay("image2", "state2");
+        ASSERT_EQ(view_info.GetOverlays().Size(), 2);
+        ASSERT_EQ(view_info.GetUnderlays().Size(), 2);
+        EXPECT_EQ(view_info.GetUnderlays()[1].GetSprite(), "image2");
+        EXPECT_EQ(view_info.GetUnderlays()[1].GetState(), "state2");
     }
 
     view_info.RemoveOverlays();
-    ASSERT_EQ(view_info.GetOverlays().size(), 0);
-    ASSERT_EQ(view_info.GetUnderlays().size(), 2);
+    EXPECT_EQ(view_info.GetOverlays().Size(), 0);
+    EXPECT_EQ(view_info.GetUnderlays().Size(), 2);
 
     view_info.RemoveUnderlays();
-    ASSERT_EQ(view_info.GetOverlays().size(), 0);
-    ASSERT_EQ(view_info.GetUnderlays().size(), 0);
+    EXPECT_EQ(view_info.GetOverlays().Size(), 0);
+    EXPECT_EQ(view_info.GetUnderlays().Size(), 0);
 }
 
-TEST(ViewInfo, IsSameFramesets)
+// TODO: tests for representation?
+/*TEST(ViewInfo, IsSameFramesets)
 {
     ViewInfo view_info;
     EXPECT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info));
@@ -293,7 +381,7 @@ TEST(ViewInfo, IsSameFramesets)
     view_info2.RemoveUnderlays();
     view_info2.AddUnderlay("2fkds;a", "2fdjsl;kjf");
     EXPECT_FALSE(ViewInfo::IsSameFramesets(view_info, view_info2));
-}
+}*/
 
 TEST(ViewInfo, StreamOperators)
 {
@@ -318,19 +406,19 @@ TEST(ViewInfo, StreamOperators)
     EXPECT_EQ(view_info2.GetBaseFrameset().GetSprite(), "vhs");
     EXPECT_EQ(view_info2.GetBaseFrameset().GetState(), "dead");
 
-    ASSERT_EQ(view_info2.GetOverlays().size(), 1);
-    ViewInfo::FramesetInfo frameset_info1 = view_info2.GetOverlays()[0];
+    ASSERT_EQ(view_info2.GetOverlays().Size(), 1);
+    ViewInfo::ConstFramesetInfo frameset_info1 = view_info2.GetOverlays()[0];
     EXPECT_EQ(frameset_info1.GetSprite(), "something");
     EXPECT_EQ(frameset_info1.GetState(), "someone");
     EXPECT_EQ(frameset_info1.GetShiftX(), 1);
     EXPECT_EQ(frameset_info1.GetShiftY(), 10);
 
-    ASSERT_EQ(view_info2.GetUnderlays().size(), 1);
-    ViewInfo::FramesetInfo frameset_info2 = view_info2.GetUnderlays()[0];
+    ASSERT_EQ(view_info2.GetUnderlays().Size(), 1);
+    ViewInfo::ConstFramesetInfo frameset_info2 = view_info2.GetUnderlays()[0];
     EXPECT_EQ(frameset_info2.GetSprite(), "tree");
     EXPECT_EQ(frameset_info2.GetState(), "weed");
 
-    EXPECT_TRUE(ViewInfo::IsSameFramesets(view_info, view_info2));
+    EXPECT_EQ(view_info.GetRawData(), view_info2.GetRawData());
 }
 
 TEST(ViewInfo, Hash)

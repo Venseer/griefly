@@ -1,6 +1,6 @@
 #include "Game.h"
 
-#include "core_headers/KvAbort.h"
+#include "core/KvAbort.h"
 
 #include "Map.h"
 
@@ -269,10 +269,7 @@ void Game::ProcessInputMessages()
 
             qDebug() << "Map will be generated";
 
-            serializer_.ResetIndex();
-            world_->SaveWorld(&serializer_);
-            data = QByteArray(serializer_.GetData(), serializer_.GetIndex());
-
+            data = world_->SaveWorld();
             AddLastMessages(&data);
             AddBuildInfo(&data);
 
