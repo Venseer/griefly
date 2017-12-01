@@ -13,10 +13,9 @@ compiler: gcc
 
 before_install:
   - export CXX="g++-4.9"
-  # work around https://github.com/travis-ci/travis-ci/issues/8363
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
     export CXX="g++-5";
-    pyenv global system 3.5;
+    source ~/virtualenv/python3.5/bin/activate;
     fi
   
 install:
@@ -31,7 +30,6 @@ install:
     sudo apt-get install -y lcov;
     sudo apt-get install -y mesa-common-dev;
     sudo apt-get install -y libglu1-mesa-dev;
-    sudo apt-get install -y python3;
     gem install coveralls-lcov;
     sudo /opt/qt59/bin/qt59-env.sh;
     export CMAKE_PREFIX_PATH=/opt/qt59/;
@@ -42,6 +40,8 @@ install:
     eval "$(gimme 1.6)";
     brew install qt;
     brew install python3;
+    virtualenv venv -p python3;
+    source venv/bin/activate;
     brew info qt;
     export CMAKE_PREFIX_PATH=/opt/qt58/;
     export PATH="/usr/local/opt/qt/bin:$PATH";

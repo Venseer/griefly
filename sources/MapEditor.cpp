@@ -6,11 +6,15 @@
 #include <QDebug>
 #include <QGraphicsSceneMouseEvent>
 #include <QFileDialog>
+#include <QJsonObject>
+#include <QJsonArray>
 
 #include <fstream>
 
 #include "core/KvGlobals.h"
 #include "core/Helpers.h"
+#include "core/FastSerializer.h"
+#include "core/SaveableOperators.h"
 
 MapEditor::EditorEntry::EditorEntry()
 {
@@ -249,6 +253,148 @@ void MapEditor::SaveMapgen(const QString& name)
     file.write("\n");
 }
 
+namespace
+{
+namespace key
+{
+
+    const QString WIDTH("width");
+    const QString HEIGHT("height");
+    const QString DEPTH("depth");
+    const QString TILES("tiles");
+    const QString TYPE("type");
+    const QString VARIABLES("variables");
+    const QString OBJECTS("objects");
+    const QString TURF("turf");
+    const QString X("x");
+    const QString Y("y");
+    const QString Z("z");
+
+}
+
+QJsonValue ConvertSerializedToJson(const QByteArray& data)
+{
+    kv::FastDeserializer deserializer(data.data(), data.size());
+    const kv::FastSerializer::Type type = deserializer.GetNextType();
+    switch (type)
+    {
+    case kv::FastSerializer::BOOL_TYPE:
+    {
+        bool retval;
+        deserializer >> retval;
+        return retval;
+    }
+    case kv::FastSerializer::INT32_TYPE:
+    {
+        qint32 retval;
+        deserializer >> retval;
+        return retval;
+    }
+    case kv::FastSerializer::UINT32_TYPE:
+    {
+        quint32 retval;
+        deserializer >> retval;
+        return static_cast<double>(retval);
+    }
+    case kv::FastSerializer::STRING_TYPE:
+    {
+        QString retval;
+        deserializer >> retval;
+        return retval;
+    }
+    case kv::FastSerializer::BYTEARRAY_TYPE:
+    {
+        QByteArray retval;
+        deserializer >> retval;
+        return QString::fromLatin1(retval.toHex());
+    }
+    case kv::FastSerializer::TYPE_TYPE:
+    {
+        QString retval;
+        deserializer >> retval;
+        return retval;
+    }
+    default:
+        qDebug() << "Unknown type:" << type;
+        return QJsonValue();
+    }
+    KV_UNREACHABLE
+}
+
+}
+
+QJsonObject MapEditor::SaveMapgenJson() const
+{
+    const int size_x = editor_map_.size();
+    const int size_y = editor_map_[0].size();
+    const int size_z = editor_map_[0][0].size();
+
+    QJsonArray tiles;
+    for (int z = 0; z < size_z; ++z)
+    {
+        for (int x = 0; x < size_x; ++x)
+        {
+            for (int y = 0; y < size_y; ++y)
+            {
+                const EditorTile tile = editor_map_[x][y][z];
+                QJsonObject tile_info;
+                tile_info.insert(key::X, x);
+                tile_info.insert(key::Y, y);
+                tile_info.insert(key::Z, z);
+                if (editor_map_[x][y][z].turf.pixmap_item)
+                {
+                    QJsonObject turf_info;
+                    turf_info.insert(key::TYPE, tile.turf.item_type);
+                    QJsonArray variables;
+                    for (auto var = tile.turf.variables.begin(); var != tile.turf.variables.end(); ++var)
+                    {
+                        if (var.value().isEmpty())
+                        {
+                            continue;
+                        }
+
+                        const QJsonValue value = ConvertSerializedToJson(var.value());
+                        variables.append(QJsonObject{{var.key(), value}});
+                    }
+                    turf_info.insert(key::VARIABLES, variables);
+                    tile_info.insert(key::TURF, turf_info);
+                }
+
+                QJsonArray objects;
+
+                const auto& il = editor_map_[x][y][z].items;
+                for (auto it = il.begin(); it != il.end(); ++it)
+                {
+                    QJsonObject object_info;
+                    object_info.insert(key::TYPE, it->item_type);
+                    QJsonArray variables;
+                    for (auto var = it->variables.begin(); var != it->variables.end(); ++var)
+                    {
+                        if (var.value().isEmpty())
+                        {
+                            continue;
+                        }
+                        const QJsonValue value = ConvertSerializedToJson(var.value());
+                        variables.append(QJsonObject{{var.key(), value}});
+                    }
+                    object_info.insert(key::VARIABLES, variables);
+                    objects.append(object_info);
+                }
+                tile_info.insert(key::OBJECTS, objects);
+
+                tiles.append(tile_info);
+            }
+        }
+    }
+    QJsonObject retval;
+    retval.insert(key::WIDTH, size_x);
+    retval.insert(key::HEIGHT, size_y);
+    retval.insert(key::DEPTH, size_z);
+    retval.insert(key::TILES, tiles);
+
+    return retval;
+}
+
 void MapEditor::LoadMapgen(const QString& name)
 {
     QFile file(name);
@@ -313,6 +459,11 @@ void MapEditor::LoadMapgen(const QString& name)
         data >> ee->variables;
         UpdateDirs(ee);
     }
+}
+
+void MapEditor::LoadMapgenJson(const QJsonObject& data)
+{
+    // TODO:
 }
 
 void MapEditor::fix_borders(int *posx, int *posy)
