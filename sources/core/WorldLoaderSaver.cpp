@@ -1,6 +1,7 @@
 #include "WorldLoaderSaver.h"
 
 #include <QFile>
+#include <QJsonArray>
 
 #include "Idptr.h"
 
@@ -9,6 +10,8 @@
 #include "objects/turfs/Turf.h"
 #include "objects/Tile.h"
 #include "objects/mobs/Mob.h"
+
+#include "core_headers/Mapgen.h"
 
 #include "core/SaveableOperators.h"
 
@@ -190,6 +193,71 @@ void LoadMapHeader(GameInterface* game, kv::FastDeserializer& deserializer)
     game->SetGlobals(globals);
 
     factory.GetIdTable().resize(id + 1);
+}
+
+namespace
+{
+
+void LoadObject(GameInterface* game, const QJsonObject& data, kv::Position position, bool is_turf)
+{
+    ObjectFactoryInterface& factory = game->GetFactory();
+}
+
+}
+
+void LoadFromJsonMapGen(GameInterface* game, const QJsonObject& data)
+{
+    ObjectFactoryInterface& factory = game->GetFactory();
+    factory.BeginWorldCreation();
+
+    // TODO: validate json
+
+    const int map_x = data.value(mapgen::key::WIDTH).toInt();
+    const int map_y = data.value(mapgen::key::HEIGHT).toInt();
+    const int map_z = data.value(mapgen::key::DEPTH).toInt();
+
+    auto& map = game->GetMap();
+
+    // Making tiles
+    map.Resize(map_x, map_y, map_z);
+    for (int x = 0; x < map.GetWidth(); x++)
+    {
+        for (int y = 0; y < map.GetHeight(); y++)
+        {
+            for (int z = 0; z < map.GetDepth(); z++)
+            {
+                IdPtr<CubeTile> tile = game->GetFactory().CreateImpl(CubeTile::GetTypeStatic());
+                tile->SetPos({x, y, z});
+                map.At(x, y, z) = tile;
+            }
+        }
+    }
+
+    game->GetAtmosphere().LoadGrid(&game->GetMap());
+
+    const QJsonArray tiles = data.value(mapgen::key::TILES).toArray();
+
+    for (const QJsonValue& tile_value : tiles)
+    {
+        const QJsonObject tile = tile_value.toObject();
+
+        const int x = tile.value(mapgen::key::X).toInt();
+        const int y = tile.value(mapgen::key::Y).toInt();
+        const int z = tile.value(mapgen::key::Z).toInt();
+
+        const QJsonObject turf = tile.value(mapgen::key::TURF).toObject();
+        LoadObject(game, turf, {x, y, z}, true);
+
+        const QJsonArray objects = tile.value(mapgen::key::OBJECTS).toArray();
+        for (const QJsonValue& object_value : objects)
+        {
+            const QJsonObject object = object_value.toObject();
+            LoadObject(game, object, {x, y, z}, false);
+        }
+    }
+
+    factory.FinishWorldCreation();
+    game->GetMap().FillTilesAtmosHolders();
 }
 
 }

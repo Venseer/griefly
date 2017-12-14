@@ -16,6 +16,8 @@
 #include "core/FastSerializer.h"
 #include "core/SaveableOperators.h"
 
+#include "core_headers/Mapgen.h"
+
 MapEditor::EditorEntry::EditorEntry()
 {
     pixmap_item = nullptr;
@@ -255,25 +257,11 @@ void MapEditor::SaveMapgen(const QString& name)
 
 namespace
 {
-namespace key
-{
-
-    const QString WIDTH("width");
-    const QString HEIGHT("height");
-    const QString DEPTH("depth");
-    const QString TILES("tiles");
-    const QString TYPE("type");
-    const QString VARIABLES("variables");
-    const QString OBJECTS("objects");
-    const QString TURF("turf");
-    const QString X("x");
-    const QString Y("y");
-    const QString Z("z");
-
-}
 
 QJsonValue ConvertSerializedToJson(const QByteArray& data)
 {
+    using namespace mapgen;
+
     kv::FastDeserializer deserializer(data.data(), data.size());
     const kv::FastSerializer::Type type = deserializer.GetNextType();
     switch (type)
@@ -282,37 +270,38 @@ QJsonValue ConvertSerializedToJson(const QByteArray& data)
     {
         bool retval;
         deserializer >> retval;
-        return retval;
+        return QJsonObject{{key::type::BOOL, retval}};
     }
     case kv::FastSerializer::INT32_TYPE:
     {
         qint32 retval;
         deserializer >> retval;
-        return retval;
+        return QJsonObject{{key::type::INT32, retval}};
     }
     case kv::FastSerializer::UINT32_TYPE:
     {
         quint32 retval;
         deserializer >> retval;
-        return static_cast<double>(retval);
+        return QJsonObject{{key::type::UINT32, static_cast<double>(retval)}};
     }
     case kv::FastSerializer::STRING_TYPE:
     {
         QString retval;
         deserializer >> retval;
-        return retval;
+        return QJsonObject{{key::type::STRING, retval}};
     }
     case kv::FastSerializer::BYTEARRAY_TYPE:
     {
         QByteArray retval;
         deserializer >> retval;
-        return QString::fromLatin1(retval.toHex());
+        return QJsonObject{
+            {key::type::BYTEARRAY, QString::fromLatin1(retval.toHex())}};
     }
     case kv::FastSerializer::TYPE_TYPE:
     {
         QString retval;
         deserializer >> retval;
-        return retval;
+        return QJsonObject{{key::type::TYPE, retval}};
     }
     default:
         qDebug() << "Unknown type:" << type;
@@ -323,34 +312,57 @@ QJsonValue ConvertSerializedToJson(const QByteArray& data)
 
 QByteArray ConvertJsonToSerialized(const QJsonValue& data)
 {
+    using namespace mapgen;
+
     kv::FastSerializer serializer(1024);
 
-    if (data.isNull())
+    const QJsonObject object = data.toObject();
+    const QStringList keys = object.keys();
+    if (keys.isEmpty())
     {
-        return QByteArray();
+        qFatal("ConvertJsonToSerialized: no keys!");
     }
-    else if (data.isDouble())
-    {
-        serializer << data.toInt();
-        return QByteArray(serializer.GetData(), serializer.GetIndex());
-    }
-    else if (data.isString())
-    {
-        serializer << data.toString();
-        return QByteArray(serializer.GetData(), serializer.GetIndex());
-    }
-    else if (data.isBool())
-    {
-        serializer << data.toBool();
-        return QByteArray(serializer.GetData(), serializer.GetIndex());
-    }
+    const QString type = keys.first();
+    const QJsonValue value = object.value(type);
 
+    if (type == key::type::BOOL)
+    {
+        serializer << value.toBool();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::INT32)
+    {
+        serializer << value.toInt();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::UINT32)
+    {
+        serializer << static_cast<quint32>(value.toDouble());
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::STRING)
+    {
+        serializer << value.toString();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::BYTEARRAY)
+    {
+        serializer << QByteArray::fromHex(value.toString().toLatin1());
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::TYPE)
+    {
+        serializer << value.toString();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
     qDebug() << "Unknown type:" << data;
     return QByteArray();
 }
 
 QJsonObject EntryToJson(const MapEditor::EditorEntry& entry)
 {
+    using namespace mapgen;
+
     QJsonObject object_info;
     object_info.insert(key::TYPE, entry.item_type);
     QJsonObject variables;
@@ -372,6 +384,8 @@ QJsonObject EntryToJson(const MapEditor::EditorEntry& entry)
 
 QJsonObject MapEditor::SaveMapgenJson() const
 {
+    using namespace mapgen;
+
     const int size_x = editor_map_.size();
     const int size_y = editor_map_[0].size();
     const int size_z = editor_map_[0][0].size();
@@ -483,7 +497,11 @@ void MapEditor::LoadMapgen(const QString& name)
 
 void MapEditor::LoadMapgenJson(const QJsonObject& data)
 {
+    using namespace mapgen;
+
     ClearMap();
+
+    // TODO: validate json
 
     const int width = data.value(key::WIDTH).toInt();
     const int height = data.value(key::HEIGHT).toInt();
@@ -516,6 +534,8 @@ void MapEditor::LoadMapgenJson(const QJsonObject& data)
 
 void MapEditor::CreateEntity(kv::Position position, const QJsonObject& info, bool is_turf)
 {
+    using namespace mapgen;
+
     if (info.isEmpty())
     {
         return;
