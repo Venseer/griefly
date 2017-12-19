@@ -188,73 +188,6 @@ void MapEditor::PasteFromAreaBuffer()
                 second_selection_x_, second_selection_y_);
 }
 
-void MapEditor::SaveMapgen(const QString& name)
-{
-    int size_x = editor_map_.size();
-    int size_y = editor_map_[0].size();
-    int size_z = editor_map_[0][0].size();
-
-    kv::FastSerializer data;
-
-    data << size_x;
-    data << size_y;
-    data << size_z;
-
-    for (int z = 0; z < size_z; ++z)
-    {
-        for (int x = 0; x < size_x; ++x)
-        {
-            for (int y = 0; y < size_y; ++y)
-            {
-                if (editor_map_[x][y][z].turf.pixmap_item)
-                {
-                    data.WriteType(editor_map_[x][y][z].turf.item_type);
-                    data << x;
-                    data << y;
-                    data << z;
-                    data << editor_map_[x][y][z].turf.variables;
-                }
-                auto& il = editor_map_[x][y][z].items;
-                for (auto it = il.begin(); it != il.end(); ++it)
-                {
-                    data.WriteType(it->item_type);
-                    data << x;
-                    data << y;
-                    data << z;
-                    data << it->variables;
-                }
-            }
-        }
-    }
-    QFile file(name);
-    if (!file.open(QIODevice::WriteOnly))
-    {
-        qDebug() << file.fileName() << " cannot be opened.";
-        return;
-    }
-
-    // Binary mapgen is really bad for version control systems, so
-    // converting it to hex with line breaks
-
-    QByteArray hex = QByteArray(data.GetData(), data.GetIndex()).toHex();
-
-    int index = -1;
-    int old_index = 0;
-    while (true)
-    {
-        index = hex.indexOf("0602", index + 1);
-        if (index == -1)
-        {
-            break;
-        }
-        file.write(hex.data() + old_index, index - old_index);
-        file.write("\n");
-        old_index = index;
-    }
-    file.write(hex.data() + old_index, hex.size() - old_index);
-    file.write("\n");
-}
-
 namespace
 {
 
@@ -368,11 +301,11 @@ QJsonObject EntryToJson(const MapEditor::EditorEntry& entry)
     QJsonObject variables;
     for (auto var = entry.variables.begin(); var != entry.variables.end(); ++var)
     {
-        if (var.value().isEmpty())
+        if (var.value().isNull())
         {
             continue;
         }
-        const QJsonValue value = ConvertSerializedToJson(var.value());
+        const QJsonValue value = var.value();
         variables.insert(var.key(), value);
     }
     object_info.insert(key::VARIABLES, variables);
@@ -427,72 +360,6 @@ QJsonObject MapEditor::SaveMapgenJson() const
     retval.insert(key::TILES, tiles);
 
     return retval;
-}
-
-void MapEditor::LoadMapgen(const QString& name)
-{
-    QFile file(name);
-    if (!file.open(QIODevice::ReadOnly))
-    {
-        qDebug() << "Error open " << name;
-        return;
-    }
-
-    ClearMap();
-
-    QByteArray raw_data;
-    while (file.bytesAvailable())
-    {
-        QByteArray local = file.readLine();
-        if (local.size() < 1)
-        {
-            break;
-        }
-        local = local.left(local.size() - 1);
-        raw_data.append(local);
-    }
-    raw_data = QByteArray::fromHex(raw_data);
-    kv::FastDeserializer data(raw_data.data(), raw_data.size());
-
-    int x;
-    data >> x;
-
-    int y;
-    data >> y;
-
-    int z;
-    data >> z;
-
-    Resize(x, y, z);
-
-    qDebug() << x << y << z;
-
-    while (!data.IsEnd())
-    {
-        QString item_type;
-        qint32 x;
-        qint32 y;
-        qint32 z;
-
-        data.ReadType(&item_type);
-
-        data >> x;
-        data >> y;
-        data >> z;
-
-        MapEditor::EditorEntry* ee;
-        if (turf_types_.find(item_type) != turf_types_.end())
-        {
-            ee = &SetTurf(item_type, x, y, z);
-        }
-        else
-        {
-            ee = &AddItem(item_type, x, y, z);
-        }
-
-        data >> ee->variables;
-        UpdateDirs(ee);
-    }
 }
 
 void MapEditor::LoadMapgenJson(const QJsonObject& data)
@@ -557,7 +424,7 @@ void MapEditor::CreateEntity(kv::Position position, const QJsonObject& info, boo
 
     for (const QString& key : variables.keys())
     {
-        entry->variables.insert(key, ConvertJsonToSerialized(variables.value(key)));
+        entry->variables.insert(key, variables.value(key));
     }
     UpdateDirs(entry);
 }
@@ -643,12 +510,10 @@ void MapEditor::AddItem(const QString &item_type)
 
 void MapEditor::UpdateDirs(MapEditor::EditorEntry* ee)
 {
-    QByteArray& data = ee->variables["direction_"];
-    if (ee && data.size())
+    const QJsonValue& data = ee->variables["direction_"];
+    if (ee && !data.isNull())
     {
-        kv::FastDeserializer deserializer(data.data(), data.size());
-        Dir dir;
-        deserializer >> dir;
+        Dir dir = static_cast<Dir>(data.toInt());
         int byond_dir = helpers::DirToByond(dir);
 
         if (byond_dir < image_holder_[ee->item_type].size())

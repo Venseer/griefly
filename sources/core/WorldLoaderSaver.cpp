@@ -79,97 +79,6 @@ void Load(GameInterface* game, kv::FastDeserializer& deserializer, quint32 real_
     game->GetAtmosphere().LoadGrid(&game->GetMap());
 }
 
-void LoadFromMapGen(GameInterface* game, FastDeserializer& deserializer)
-{
-    ObjectFactoryInterface& factory = game->GetFactory();
-    factory.BeginWorldCreation();
-
-    int map_x;
-    int map_y;
-    int map_z;
-
-    deserializer >> map_x;
-    deserializer >> map_y;
-    deserializer >> map_z;
-
-    auto& map = game->GetMap();
-
-    // Making tiles
-    map.Resize(map_x, map_y, map_z);
-    for (int x = 0; x < map.GetWidth(); x++)
-    {
-        for (int y = 0; y < map.GetHeight(); y++)
-        {
-            for (int z = 0; z < map.GetDepth(); z++)
-            {
-                IdPtr<CubeTile> tile = game->GetFactory().CreateImpl(CubeTile::GetTypeStatic());
-                tile->SetPos({x, y, z});
-                map.At(x, y, z) = tile;
-            }
-        }
-    }
-
-    game->GetAtmosphere().LoadGrid(&game->GetMap());
-
-    qDebug() << "Begin loading cycle";
-    while (!deserializer.IsEnd())
-    {
-        QString item_type;
-        qint32 x;
-        qint32 y;
-        qint32 z;
-
-        deserializer.ReadType(&item_type);
-
-        deserializer >> x;
-        deserializer >> y;
-        deserializer >> z;
-
-        IdPtr<kv::MaterialObject> i = factory.CreateImpl(item_type);
-
-        if (!i.IsValid())
-        {
-            kv::Abort(QString("Unable to cast: %1").arg(item_type));
-        }
-
-        MapgenVariablesType variables;
-        deserializer >> variables;
-
-        for (auto it = variables.begin(); it != variables.end(); ++it)
-        {
-            if ((it.value().size() == 0) || (it.key().size() == 0))
-            {
-                continue;
-            }
-
-            QByteArray variable_data = it.value();
-
-            kv::FastDeserializer local(variable_data.data(), variable_data.size());
-
-            auto& setters_for_type = GetSettersForTypes();
-
-            setters_for_type[item_type][it.key()](i.operator->(), local);
-        }
-
-        auto& tile = game->GetMap().At(x, y, z);
-        if (IdPtr<kv::Turf> turf = i)
-        {
-            if (tile->GetTurf())
-            {
-                kv::Abort(QString("Double turf at %1, %2, %3").arg(x, y, z));
-            }
-            tile->SetTurf(turf);
-        }
-        else
-        {
-            tile->AddObject(i);
-        }
-    }
-
-    factory.FinishWorldCreation();
-    game->GetMap().FillTilesAtmosHolders();
-}
-
 void SaveMapHeader(const GameInterface* game, kv::FastSerializer& serializer)
 {
     const ObjectFactoryInterface& factory = game->GetFactory();
@@ -198,9 +107,119 @@ void LoadMapHeader(GameInterface* game, kv::FastDeserializer& deserializer)
 namespace
 {
 
+QByteArray ConvertJsonToSerialized(const QJsonValue& data)
+{
+    using namespace mapgen;
+
+    kv::FastSerializer serializer(1024);
+
+    const QJsonObject object = data.toObject();
+    const QStringList keys = object.keys();
+    if (keys.isEmpty())
+    {
+        qFatal("ConvertJsonToSerialized: no keys!");
+    }
+    const QString type = keys.first();
+    const QJsonValue value = object.value(type);
+
+    if (type == key::type::BOOL)
+    {
+        serializer << value.toBool();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::INT32)
+    {
+        serializer << value.toInt();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::UINT32)
+    {
+        serializer << static_cast<quint32>(value.toDouble());
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::STRING)
+    {
+        serializer << value.toString();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::BYTEARRAY)
+    {
+        serializer << QByteArray::fromHex(value.toString().toLatin1());
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    else if (type == key::type::TYPE)
+    {
+        serializer << value.toString();
+        return QByteArray(serializer.GetData(), serializer.GetIndex());
+    }
+    qDebug() << "Unknown type:" << data;
+    return QByteArray();
+}
+
 void LoadObject(GameInterface* game, const QJsonObject& data, kv::Position position, bool is_turf)
 {
     ObjectFactoryInterface& factory = game->GetFactory();
+
+    if (data.isEmpty())
+    {
+        qDebug() << "Json data is empty!";
+        return;
+    }
+
+    const QString object_type = data.value(mapgen::key::TYPE).toString();
+
+    IdPtr<kv::MaterialObject> object = factory.CreateImpl(object_type);
+    if (!object.IsValid())
+    {
+        kv::Abort(QString("Unable to cast: %1").arg(object_type));
+    }
+
+    const auto& setters_for_types = GetSettersForTypes();
+    auto it = setters_for_types.find(object_type);
+    if (it == setters_for_types.end())
+    {
+        kv::Abort(QString("Unable to find setters for type: %1").arg(object_type));
+    }
+    const SettersForType& setters_for_type = it->second;
+    const QJsonObject variables = data.value(mapgen::key::VARIABLES).toObject();
+
+    for (const QString& key : variables.keys())
+    {
+        auto it = setters_for_type.find(key);
+        if (it == setters_for_type.end())
+        {
+            kv::Abort(
+                QString("Unable to find setter for type::variable: %1::%2")
+                    .arg(object_type)
+                    .arg(key));
+        }
+        const VariableSetter& setter = it->second;
+
+        const QByteArray serialized = ConvertJsonToSerialized(variables.value(key));
+        kv::FastDeserializer deserializer(serialized.data(), serialized.size());
+        setter(object.operator->(), deserializer);
+    }
+    auto& tile = game->GetMap().At(position.x, position.y, position.z);
+    if (is_turf)
+    {
+        if (IdPtr<kv::Turf> turf = object)
+        {
+            if (tile->GetTurf())
+            {
+                kv::Abort(
+                    QString("Double turf at %1, %2, %3").arg(position.x, position.y, position.z));
+            }
+            tile->SetTurf(turf);
+        }
+        else
+        {
+            kv::Abort(QString("Object is not turf: %1").arg(object_type));
+        }
+    }
+    else
+    {
+        tile->AddObject(object);
+    }
 }
 
 }
