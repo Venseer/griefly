@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "MapEditor.h"
-#include "core/FastSerializer.h"
 
 namespace Ui {
 class MapEditorForm;
@@ -84,8 +83,6 @@ private:
     // Metainfo
     std::vector<QString> types_;
     std::vector<QString> turf_types_;
-
-    kv::FastSerializer serializer_;
 
     Ui::MapEditorForm *ui;
 };
