@@ -1,26 +1,27 @@
 #include "Human.h"
 
-#include "core/ObjectFactory.h"
-#include "core/Names.h"
-#include "representation/Sound.h"
-#include "core/objects/movable/items/Shard.h"
-#include "net/MagicStrings.h"
-#include "core/atmos/AtmosHolder.h"
-#include "core/objects/Tile.h"
-#include "core/SynchronizedRandom.h"
-#include "Ghost.h"
-#include "core/objects/movable/items/Clothes.h"
-#include "core/objects/turfs/Floor.h"
-#include "core/objects/Lobby.h"
-#include "core/Game.h"
-#include "core/objects/movable/items/Gun.h"
-#include "core/objects/movable/items/Weapons.h"
-#include "core/objects/movable/items/ElectricTools.h"
-#include "core/objects/turfs/SpaceTurf.h"
-#include "core/objects/movable/items/Drinks.h"
-#include "core/objects/movable/items/MedbayTools.h"
+#include "ObjectFactory.h"
+#include "Names.h"
+#include "objects/movable/items/Shard.h"
 
-#include "representation/Representation.h"
+// TODO: remove this
+#include "client/net/MagicStrings.h"
+
+#include "atmos/AtmosHolder.h"
+#include "objects/Tile.h"
+#include "SynchronizedRandom.h"
+#include "Ghost.h"
+#include "objects/movable/items/Clothes.h"
+#include "objects/turfs/Floor.h"
+#include "objects/Lobby.h"
+#include "objects/movable/items/Gun.h"
+#include "objects/movable/items/Weapons.h"
+#include "objects/movable/items/ElectricTools.h"
+#include "objects/turfs/SpaceTurf.h"
+#include "objects/movable/items/Drinks.h"
+#include "objects/movable/items/MedbayTools.h"
+
+#include "ChatFrameInfo.h"
 
 using namespace kv;
 
@@ -136,22 +137,22 @@ void Human::ProcessMessage(const Message& message)
     {
         if (qAbs(force_.x) + qAbs(force_.y) + qAbs(force_.z) < 4)
         {
-            if (Network2::IsKey(message.data, Input::MOVE_UP))
+            if (IsKey(message.data, Input::MOVE_UP))
             {
                 ApplyForce(DirToVDir(Dir::NORTH));
                 return;
             }
-            else if (Network2::IsKey(message.data, Input::MOVE_DOWN))
+            else if (IsKey(message.data, Input::MOVE_DOWN))
             {
                 ApplyForce(DirToVDir(Dir::SOUTH));
                 return;
             }
-            else if (Network2::IsKey(message.data, Input::MOVE_LEFT))
+            else if (IsKey(message.data, Input::MOVE_LEFT))
             {
                 ApplyForce(DirToVDir(Dir::WEST));
                 return;
             }
-            else if (Network2::IsKey(message.data, Input::MOVE_RIGHT))
+            else if (IsKey(message.data, Input::MOVE_RIGHT))
             {
                 ApplyForce(DirToVDir(Dir::EAST));
                 return;
@@ -196,13 +197,13 @@ void Human::ProcessMessage(const Message& message)
         }
         attack_cooldown_ = GetGameTick();
 
-        IdPtr<MaterialObject> object = Network2::ExtractObjId(message.data);
+        IdPtr<MaterialObject> object = ExtractObjId(message.data);
         if (!object.IsValid())
         {
             return;
         }
 
-        QString action = Network2::ExtractAction(message.data);
+        QString action = ExtractAction(message.data);
         if (action == Click::LEFT_SHIFT)
         {
             if (IdPtr<Human> human = object)

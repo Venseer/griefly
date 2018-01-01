@@ -1,7 +1,6 @@
 #include "Closet.h"
 
-#include "core/objects/mobs/Human.h"
-#include "representation/Sound.h"
+#include "objects/mobs/Human.h"
 
 using namespace kv;
 

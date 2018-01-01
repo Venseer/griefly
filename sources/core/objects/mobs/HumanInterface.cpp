@@ -1,9 +1,7 @@
 #include "HumanInterface.h"
 
-#include "core/objects/movable/items/Item.h"
-#include "core/objects/mobs/Human.h"
-
-#include "representation/Representation.h"
+#include "objects/movable/items/Item.h"
+#include "objects/mobs/Human.h"
 
 namespace
 {

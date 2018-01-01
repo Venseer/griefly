@@ -1,12 +1,10 @@
 #pragma once
 
-#include "core/Game.h"
-
 #include "Item.h"
 #include "AmmunitionBoxes.h"
 
-#include "core/objects/movable/ProjectileTypes.h"
-#include "core/objects/movable/Projectiles.h"
+#include "objects/movable/ProjectileTypes.h"
+#include "objects/movable/Projectiles.h"
 
 namespace kv
 {

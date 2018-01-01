@@ -1,7 +1,6 @@
 #include "Item.h"
 
-#include "core/SynchronizedRandom.h"
-#include "core/Game.h"
+#include "SynchronizedRandom.h"
 
 using namespace kv;
 

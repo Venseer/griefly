@@ -1,12 +1,9 @@
 #include "Girder.h"
 
-#include "core/objects/movable/items/Materials.h"
-#include "core/objects/turfs/MetalWall.h"
+#include "objects/movable/items/Materials.h"
+#include "objects/turfs/MetalWall.h"
 
-#include "core/ObjectFactory.h"
-#include "core/Game.h"
-
-#include "representation/Sound.h"
+#include "ObjectFactory.h"
 
 using namespace kv;
 

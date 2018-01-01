@@ -1,17 +1,15 @@
 #include "ObjectFactory.h"
 
-#include "core/KvAbort.h"
+#include "KvAbort.h"
 
 #include "objects/Object.h"
 #include "objects/MaterialObject.h"
 #include "objects/PhysicsEngine.h"
-#include "Game.h"
 #include "Map.h"
 #include "SynchronizedRandom.h"
-#include "net/MagicStrings.h"
 #include "AutogenMetadata.h"
 
-#include "MapEditor.h"
+#include "objects/GlobalObjectsHolder.h"
 
 ObjectFactory::ObjectFactory(GameInterface* game)
 {

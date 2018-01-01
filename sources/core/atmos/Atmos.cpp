@@ -4,12 +4,10 @@
 
 #include <algorithm>
 
-#include "core/SynchronizedRandom.h"
-#include "core/objects/Tile.h"
+#include "SynchronizedRandom.h"
+#include "objects/Tile.h"
 
 #include "AtmosGrid.h"
-
-#include "representation/Representation.h"
 
 using namespace kv;
 

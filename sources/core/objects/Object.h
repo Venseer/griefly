@@ -1,18 +1,14 @@
 #pragma once
 
-#include "core/KvAbort.h"
-#include "core/KvGlobals.h"
-#include "core/Hashes.h"
+#include "KvAbort.h"
+#include "KvGlobals.h"
+#include "Hashes.h"
 
 #include "../FastIsType.h"
 #include "../Idptr.h"
 #include "../KvMacros.h"
 
 #include "Interfaces.h"
-
-#ifdef _BUILD_TESTS
-#include <gtest/gtest.h>
-#endif // _BUILD_TESTS
 
 void InitSettersForTypes();
 

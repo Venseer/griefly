@@ -2,8 +2,7 @@
 
 #include <QTextStream>
 
-#include "core/objects/Tile.h"
-#include "core/Game.h"
+#include "objects/Tile.h"
 
 using namespace kv;
 

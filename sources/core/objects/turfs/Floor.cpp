@@ -1,13 +1,10 @@
 #include "Floor.h"
 
-#include "representation/Sound.h"
+#include "objects/movable/items/Item.h"
+#include "objects/movable/items/FloorTile.h"
+#include "objects/movable/Pipes.h"
 
-#include "core/objects/movable/items/Item.h"
-#include "core/objects/movable/items/FloorTile.h"
-#include "core/objects/movable/Pipes.h"
-
-#include "core/ObjectFactory.h"
-#include "core/Game.h"
+#include "ObjectFactory.h"
 
 using namespace kv;
 

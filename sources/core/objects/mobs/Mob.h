@@ -1,8 +1,6 @@
 #pragma once
 
-#include "core/objects/movable/Movable.h"
-
-#include "net/Network2.h"
+#include "objects/movable/Movable.h"
 
 #include "core_headers/CoreInterface.h"
 
@@ -16,7 +14,7 @@ public:
     REGISTER_CLASS_AS(imob);
     Mob();
     virtual void AfterWorldCreation() override;
-    virtual void Delete();
+    virtual void Delete() override;
 
     virtual void MindEnter() { }
     virtual void MindExit() { }

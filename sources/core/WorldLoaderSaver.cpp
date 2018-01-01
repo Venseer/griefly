@@ -13,11 +13,9 @@
 
 #include "core_headers/Mapgen.h"
 
-#include "core/SaveableOperators.h"
+#include "SaveableOperators.h"
 
 #include "SynchronizedRandom.h"
-
-#include "MapEditor.h"
 
 #include "AutogenMetadata.h"
 
