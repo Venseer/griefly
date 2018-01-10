@@ -7,14 +7,21 @@ option(BUILD_COVER "Generate test coverage" OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
+# To avoid mark __dllexport/__dllimport all symbols
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
+
 set(UTILS_DIR utils/)
 set(EXEC_DIR exec/)
+
+set(KV_INSTALL_PATH "${CMAKE_SOURCE_DIR}/${EXEC_DIR}")
 
 set(MINIMUM_QT_VERSION 5.8)
 
 include(ClangFormat)
 
 include(FilterOutList)
+
+set(CMAKE_INSTALL_RPATH "${KV_INSTALL_PATH}")
 
 # GTEST "search"
 if(BUILD_TESTS)
