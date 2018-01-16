@@ -245,26 +245,24 @@ void WorldImplementation::PostOoc(const QString& who, const QString& text)
 
 void WorldImplementation::Represent(const QVector<PlayerAndFrame>& frames) const
 {
-    for (const PlayerAndFrame player_and_frame : frames)
+    for (const PlayerAndFrame& player_and_frame : frames)
     {
         const quint32 player_net_id = player_and_frame.first;
         GrowingFrame* frame = player_and_frame.second;
 
         AppendSystemTexts(frame);
 
-        VisiblePoints points;
-        GetMob()->CalculateVisible(&points);
-
-        GetMap().Represent(frame, points);
-
-        if (IdPtr<Mob> mob = GetPlayerId(player_net_id))
-        {
-            mob->GenerateInterfaceForFrame(frame);
-        }
-        else
+        IdPtr<Mob> mob = GetPlayerId(player_net_id);
+        if (!mob.IsValid())
         {
             qDebug() << "Oops! No mob for such net id!" << player_net_id;
+            continue;
         }
+
+        VisiblePoints points;
+        mob->CalculateVisible(&points);
+        GetMap().Represent(frame, points);
+        mob->GenerateInterfaceForFrame(frame);
 
         GetAtmosphere().Represent(frame);
 
@@ -272,7 +270,7 @@ void WorldImplementation::Represent(const QVector<PlayerAndFrame>& frames) const
         AppendChatMessages(frame, points, player_net_id);
 
         // TODO: reset all shifts
-        frame->SetCamera(GetMob()->GetPosition().x, GetMob()->GetPosition().y);
+        frame->SetCamera(mob->GetPosition().x, mob->GetPosition().y);
     }
 }
 
@@ -403,16 +401,6 @@ const ChatFrameInfo& WorldImplementation::GetChatFrameInfo() const
     return chat_frame_info_;
 }
 
-IdPtr<Mob> WorldImplementation::GetMob() const
-{
-    return current_mob_;
-}
-
-void WorldImplementation::SetMob(quint32 new_mob)
-{
-    current_mob_ = new_mob;
-}
-
 IdPtr<GlobalObjectsHolder> WorldImplementation::GetGlobals() const
 {
     return global_objects_;
@@ -506,7 +494,6 @@ void WorldImplementation::AfterMapgen(const quint32 id, const bool unsync_genera
     IdPtr<LoginMob> newmob = GetFactory().CreateImpl(LoginMob::GetTypeStatic());
 
     SetPlayerId(id, newmob.Id());
-    SetMob(newmob.Id());
     newmob->MindEnter();
 }
 
@@ -518,11 +505,11 @@ CoreImplementation::CoreImplementation()
 }
 
 CoreImplementation::WorldPtr CoreImplementation::CreateWorldFromSave(
-    const QByteArray& data, const quint32 mob_id)
+    const QByteArray& data)
 {
     auto world = std::make_shared<WorldImplementation>();
     FastDeserializer deserializer(data.data(), data.size());
-    world::Load(world.get(), deserializer, mob_id);
+    world::Load(world.get(), deserializer);
     return world;
 }
 

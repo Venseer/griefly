@@ -39,9 +39,6 @@ public:
     virtual ChatFrameInfo& GetChatFrameInfo() override;
     virtual const ChatFrameInfo& GetChatFrameInfo() const override;
 
-    virtual IdPtr<kv::Mob> GetMob() const override;
-    virtual void SetMob(quint32 new_mob) override;
-
     virtual IdPtr<kv::GlobalObjectsHolder> GetGlobals() const override;
     virtual void SetGlobals(quint32 globals) override;
 
@@ -95,8 +92,7 @@ class CoreImplementation : public CoreInterface
 public:
     CoreImplementation();
 
-    virtual WorldPtr CreateWorldFromSave(
-        const QByteArray& data, quint32 mob_id) override;
+    virtual WorldPtr CreateWorldFromSave(const QByteArray& data) override;
     virtual WorldPtr CreateWorldFromJson(
         const QJsonObject& data, quint32 mob_id, const Config& config) override;
 
