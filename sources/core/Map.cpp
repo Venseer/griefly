@@ -24,16 +24,16 @@ void Map::FillTilesAtmosHolders()
     }
 }
 
-void Map::Represent(GrowingFrame* frame, const VisiblePoints& points) const
+void Map::Represent(GrowingFrame* frame, const VisiblePoints& points, IdPtr<kv::Mob> mob) const
 {
     for (const Position& point : points)
     {
         const auto& tile = At(point.x, point.y, point.z);
         const auto& objects = tile->GetInsideList();
 
-        for (const auto object : objects)
+        for (const auto& object : objects)
         {
-            object->Represent(frame);
+            object->Represent(frame, mob);
         }
 
         const auto turf = tile->GetTurf();
@@ -43,7 +43,7 @@ void Map::Represent(GrowingFrame* frame, const VisiblePoints& points) const
                 QString("Invalid turf in Map::Represent(GrowingFrame* frame) at (%1, %2, %3), but turf always should be valid!")
                     .arg(point.x).arg(point.y).arg(point.z));
         }
-        turf->Represent(frame);
+        turf->Represent(frame, mob);
     }
 }
 
