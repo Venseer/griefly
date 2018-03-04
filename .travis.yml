@@ -5,7 +5,7 @@ matrix:
       dist: trusty
     - os: osx
       sudo: required
-      osx_image: xcode7.3
+      osx_image: xcode9.2
 
 language: cpp 
 
@@ -15,7 +15,6 @@ services:
   - docker
 
 before_install:
-  - export CXX="g++-4.9"
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
     docker pull kremius/griefly-build;
     fi
@@ -24,13 +23,12 @@ install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
     brew update;
     brew install gimme;
-    eval "$(gimme 1.6)";
+    eval "$(gimme 1.9)";
     brew install qt;
     brew install python3;
     virtualenv venv -p python3;
     source venv/bin/activate;
     brew info qt;
-    export CMAKE_PREFIX_PATH=/opt/qt58/;
     export PATH="/usr/local/opt/qt/bin:$PATH";
     export LDFLAGS="-L/usr/local/opt/qt/lib";
     export CPPFLAGS="-I/usr/local/opt/qt/include";
@@ -42,7 +40,7 @@ before_script:
   
 script:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-    ./make.sh -DBUILD_TESTS=ON -DBUILD_COVER=ON -DCMAKE_BUILD_TYPE=Debug;
+    ./make.sh -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug;
     cd exec;
     ./KVEngineTests;
     fi

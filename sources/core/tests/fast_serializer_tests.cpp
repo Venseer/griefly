@@ -233,6 +233,44 @@ TEST(FastSerializer, WriteType)
     }
 }
 
+TEST(FastSerializer, WriteInt64)
+{
+    FastSerializer serializer;
+
+    {
+        qint64 value = 0;
+        serializer << value;
+        ASSERT_EQ(serializer.GetIndex(), 9);
+        EXPECT_EQ(serializer.GetData()[0], '\x07');
+        for (int i = 1; i < 9; ++i)
+        {
+            EXPECT_EQ(serializer.GetData()[i], '\x00');
+        }
+    }
+    {
+        qint64 value = 1;
+        serializer << value;
+        ASSERT_EQ(serializer.GetIndex(), 18);
+        EXPECT_EQ(serializer.GetData()[9], '\x07');
+        EXPECT_EQ(serializer.GetData()[10], '\x01');
+        for (int i = 11; i < 18; ++i)
+        {
+            EXPECT_EQ(serializer.GetData()[i], '\x00');
+        }
+    }
+    {
+        qint64 value = static_cast<qint64>(0xFFFFFFFFFFFFFFFF);
+        serializer << value;
+        ASSERT_EQ(serializer.GetIndex(), 27);
+        EXPECT_EQ(serializer.GetData()[18], '\x07');
+        for (int i = 19; i < 27; ++i)
+        {
+            EXPECT_EQ(serializer.GetData()[i], '\xFF');
+        }
+    }
+}
+
+
 TEST(FastSerializer, WriteByteArray)
 {
     FastSerializer serializer;
@@ -566,6 +604,47 @@ TEST(FastDeserializer, ReadByteArray)
     {
         EXPECT_EQ(value[i], DATA[i + 6]);
     }
+
+    ASSERT_TRUE(deserializer.IsEnd());
+}
+
+TEST(FastDeserializer, ReadInt64)
+{
+    const char* const DATA =
+        "\x07\x00\x00\x00\x00\x00\x00\x00\x00"
+        "\x07\x01\x00\x00\x00\x00\x00\x00\x00"
+        "\x07\xFF\x00\x00\x00\x00\x00\x00\x00"
+        "\x07\x47\xA3\x0B\x7A\x00\x00\x10\x00"
+        "\x07\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF"
+        "\x07\xFF\x1F\xFF\xFF\xFF\xFF\xFF\xFF";
+    const int DATA_SIZE = 54;
+
+    FastDeserializer deserializer(DATA, DATA_SIZE);
+    qint64 value;
+
+    ASSERT_FALSE(deserializer.IsEnd());
+    deserializer >> value;
+    EXPECT_EQ(value, 0);
+
+    ASSERT_FALSE(deserializer.IsEnd());
+    deserializer >> value;
+    EXPECT_EQ(value, 1);
+
+    ASSERT_FALSE(deserializer.IsEnd());
+    deserializer >> value;
+    EXPECT_EQ(value, 255);
+
+    ASSERT_FALSE(deserializer.IsEnd());
+    deserializer >> value;
+    EXPECT_EQ(value, 4503601674953543);
+
+    ASSERT_FALSE(deserializer.IsEnd());
+    deserializer >> value;
+    EXPECT_EQ(value, -1);
+
+    ASSERT_FALSE(deserializer.IsEnd());
+    deserializer >> value;
+    EXPECT_EQ(value, -57345);
 
     ASSERT_TRUE(deserializer.IsEnd());
 }

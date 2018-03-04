@@ -40,13 +40,67 @@ namespace kv
 
 struct Vector
 {
+    using InnerType = qint32;
+
     Vector() : Vector(0, 0, 0) { }
-    Vector(int new_x, int new_y, int new_z)
+    Vector(InnerType new_x, InnerType new_y, InnerType new_z)
         : x(new_x), y(new_y), z(new_z) { }
-    int x;
-    int y;
-    int z;
+    Vector& operator+=(const Vector& other)
+    {
+        x += other.x;
+        y += other.y;
+        z += other.z;
+        return *this;
+    }
+    Vector& operator*=(InnerType integer)
+    {
+        x *= integer;
+        y *= integer;
+        z *= integer;
+        return *this;
+    }
+    Vector& operator/=(InnerType integer)
+    {
+        x /= integer;
+        y /= integer;
+        z /= integer;
+        return *this;
+    }
+    Vector& operator-=(const Vector& other)
+    {
+        Vector temp = other;
+        temp *= -1;
+        operator+=(temp);
+        return *this;
+    }
+    InnerType x;
+    InnerType y;
+    InnerType z;
 };
+
+inline Vector operator+(const Vector& left, const Vector& right)
+{
+    return Vector(left.x + right.x, left.y + right.y, left.z + right.z);
+}
+
+inline Vector operator*(const Vector& left, const Vector::InnerType& right)
+{
+    Vector retval = left;
+    retval *= right;
+    return retval;
+}
+
+inline Vector operator*(const Vector::InnerType& left, const Vector& right)
+{
+    return right * left;
+}
+
+inline Vector operator-(const Vector& left, const Vector& right)
+{
+    Vector temp = right;
+    temp *= -1;
+    return left + temp;
+}
 
 inline FastDeserializer& operator>>(FastDeserializer& file, Vector& vdir)
 {
@@ -129,6 +183,11 @@ inline bool IsNonZero(const kv::Vector& vdir)
     return    vdir.x
            || vdir.y
            || vdir.z;
+}
+
+inline bool IsZero(const kv::Vector& vector)
+{
+    return !IsNonZero(vector);
 }
 
 const kv::Vector VD_LEFT(-1, 0, 0); // west

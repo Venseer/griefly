@@ -19,10 +19,55 @@ void PhysicsEngine::Add(IdPtr<Movable> movable)
     to_add_.push_back(movable);
 }
 
+Dir PhysicsEngine::ProcessForceTick(Vector* force, qint32* progress, qint32* error, int friction, int mass)
+{
+    // TODO: a-la Bresenham algo here
+    Q_UNUSED(mass)
+    Q_UNUSED(progress)
+    Q_UNUSED(error)
+    const Dir retval = VDirToDir(*force);
+    if (friction == 0)
+    {
+        return retval;
+    }
+    // TODO: proper helper
+    if ((retval == Dir::NORTH) || (retval == Dir::SOUTH))
+    {
+        if (std::abs(force->y) < FORCE_UNIT)
+        {
+            return Dir::ALL;
+        }
+    }
+    else
+    {
+        if (std::abs(force->x) < FORCE_UNIT)
+        {
+            return Dir::ALL;
+        }
+    }
+    Vector temp = DirToVDir(retval);
+    temp *= FORCE_UNIT;
+    *force -= temp;
+    return retval;
+}
+
+void PhysicsEngine::ApplyForce(Vector* force, qint32* progress, qint32* error, const Vector& addition)
+{
+    *force += addition;
+
+    const qint32 x = std::max(1, std::abs(force->x));
+    const qint32 y = std::max(1, std::abs(force->y));
+
+    const qint32 ratio = std::max(x, y) / std::min(x, y);
+
+    if (ratio < *progress)
+    {
+        *progress = *progress % ratio;
+    }
+}
+
 void PhysicsEngine::ProcessPhysics()
 {
-    const int CLEAR_TICK = 10;
-
     // TODO: better clearing algorithm #443
     Clear();
 
