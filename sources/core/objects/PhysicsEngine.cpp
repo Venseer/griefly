@@ -19,11 +19,11 @@ void PhysicsEngine::Add(IdPtr<Movable> movable)
     to_add_.push_back(movable);
 }
 
-Dir PhysicsEngine::ProcessForceTick(Vector* force, qint32* progress, qint32* error, int friction, int mass)
+Dir PhysicsEngine::ProcessForceTick(Vector* force, Dir main, Dir secondary, qint32* error, int friction, int mass)
 {
     // TODO: a-la Bresenham algo here
     Q_UNUSED(mass)
-    Q_UNUSED(progress)
+    Q_UNUSED(main)
     Q_UNUSED(error)
     const Dir retval = VDirToDir(*force);
     if (friction == 0)
@@ -51,18 +51,23 @@ Dir PhysicsEngine::ProcessForceTick(Vector* force, qint32* progress, qint32* err
     return retval;
 }
 
-void PhysicsEngine::ApplyForce(Vector* force, qint32* progress, qint32* error, const Vector& addition)
+void PhysicsEngine::ApplyForce(Vector* force, Dir* main, Dir* secondary, qint32* error, const Vector& addition)
 {
     *force += addition;
 
-    const qint32 x = std::max(1, std::abs(force->x));
-    const qint32 y = std::max(1, std::abs(force->y));
+    const Dir old_secondary = *secondary;
 
-    const qint32 ratio = std::max(x, y) / std::min(x, y);
+    *main = (force->x > 0) ? Dir::EAST : Dir::WEST;
+    *secondary = (force->y > 0) ? Dir::SOUTH : Dir::NORTH;
 
-    if (ratio < *progress)
+    if (std::abs(force->x) < std::abs(force->y))
     {
-        *progress = *progress % ratio;
+        std::swap(*main, *secondary);
+    }
+
+    if (old_secondary != *secondary)
+    {
+        *error = 0;
     }
 }
 
