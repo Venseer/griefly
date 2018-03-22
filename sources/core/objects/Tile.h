@@ -28,8 +28,8 @@ public:
     virtual bool CanTouch(IdPtr<MapObject> item) const override;
     virtual bool Contains(IdPtr<MapObject> item) const override;
 
-    virtual void Bump(IdPtr<Movable> item) override;
-    virtual void BumpByGas(Dir dir, bool inside = false) override;
+    virtual void Bump(const Vector& force, IdPtr<Movable> item) override;
+    virtual void BumpByGas(const Vector& force, bool inside = false) override;
 
     void SetPos(Position position)
     {
@@ -55,12 +55,14 @@ public:
     virtual void UpdatePassable() override;
     virtual atmos::AtmosHolder* GetAtmosHolder() override { return &atmos_holder_; }
 
-    using InsideType = QVector<IdPtr<MaterialObject>>;
-    InsideType& GetInsideList() { return inside_list_; }
+    virtual void ApplyFire(int intensity) override;
+
+    using ContentType = QVector<IdPtr<MaterialObject>>;
+    ContentType& GetContent() { return content_; }
 
     void UpdateAtmosPassable();
 protected:
-    virtual quint32 GetItemImpl(unsigned int hash) override;
+    virtual quint32 GetItemImpl(int type_index) override;
 private:
     bool CanTouch(IdPtr<MapObject> item, Dir dir) const;
     bool CanTouch(IdPtr<MapObject> item, Dir first_dir, Dir second_dir) const;
@@ -73,7 +75,7 @@ private:
 
     Position KV_SAVEABLE(position_);
 
-    InsideType KV_SAVEABLE(inside_list_);
+    ContentType KV_SAVEABLE(content_);
 
     PassableLevel KV_SAVEABLE(sum_passable_all_);
     PassableLevel KV_SAVEABLE(sum_passable_up_);

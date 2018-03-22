@@ -111,8 +111,10 @@ public:
         return false;
     }
 
-    virtual void Bump(IdPtr<Movable> item);
-    virtual void BumpByGas(Dir dir, bool inside = false);
+    virtual void Bump(const Vector& force, IdPtr<Movable> item);
+    virtual void BumpByGas(const Vector& force, bool inside = false);
+
+    virtual void ApplyFire(int intensity) { Q_UNUSED(intensity); }
 
     virtual atmos::AtmosHolder* GetAtmosHolder() { return nullptr; }
 
@@ -145,9 +147,9 @@ public:
     IdPtr<MapObject> GetRoot();
     void PlaySoundIfVisible(const QString& name);
 protected:
-    virtual quint32 GetItemImpl(unsigned int hash)
+    virtual quint32 GetItemImpl(int type_index)
     {
-        Q_UNUSED(hash)
+        Q_UNUSED(type_index)
         return 0;
     }
 private:

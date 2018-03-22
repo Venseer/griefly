@@ -39,14 +39,45 @@ namespace atmos
 
     const int ENERGY_CONST = 100;
 
+    const int O2_MULTIPLIER = 2;
+
     struct AtmosData
     {
         int gases[GASES_NUM];
         int energy;
         int pressure;
-        int volume;
+        qint16 volume;
         int temperature;
+        bool fire;
     };
+
+    inline void ProccesBurning(AtmosData* data)
+    {
+        if (!data->fire)
+        {
+            return;
+        }
+        const int oxygen = data->gases[OXYGEN];
+        const int plasma = data->gases[PLASMA];
+
+        const int max_burn = std::min(oxygen / O2_MULTIPLIER, plasma);
+
+        if (max_burn == 0)
+        {
+            data->fire = false;
+            return;
+        }
+        const int MIN_MAX_BURN = 1;
+        const int BURN_SCALE = 32;
+        const int burn = std::min(max_burn, std::max(MIN_MAX_BURN, max_burn / BURN_SCALE));
+
+        data->gases[OXYGEN] -= burn * O2_MULTIPLIER;
+        data->gases[PLASMA] -= burn;
+        data->gases[CO2] += burn;
+
+        const int ENERGY_MULTIPLIER = 4;
+        data->energy += burn * ENERGY_MULTIPLIER;
+    }
 
     inline void UpdateMacroParams(AtmosData* data)
     {

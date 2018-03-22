@@ -4,6 +4,7 @@
 #include "objects/mobs/Mob.h"
 #include "Breakable.h"
 #include "objects/movable/items/Shard.h"
+#include "objects/PhysicsEngine.h"
 
 using namespace kv;
 
@@ -34,7 +35,19 @@ void FlatGlass::AfterWorldCreation()
     SetPassable(GetDir(), passable::EMPTY);
 }
 
-void FlatGlass::Bump(IdPtr<Movable> item)
+void FlatGlass::ApplyForce(Vector force)
+{
+    const int max = std::max(std::max(force.x, force.y), force.z);
+    const int BORDERLINE = 30 * FORCE_UNIT;
+    if (max > BORDERLINE)
+    {
+        Break();
+        return;
+    }
+    Breakable::ApplyForce(force);
+}
+
+void FlatGlass::Bump(const Vector& vector, IdPtr<Movable> item)
 {
     if (IdPtr<Mob> mob = item)
     {
@@ -46,11 +59,12 @@ void FlatGlass::Bump(IdPtr<Movable> item)
             }
 
             Rotate(item->GetDir());
+            return;
         }
-        Movable::Bump(item);
+        Movable::Bump(vector, item);
         return;
     }
-    Breakable::Bump(item);
+    Breakable::Bump(vector, item);
 }
 
 bool FlatGlass::Rotate(Dir dir)

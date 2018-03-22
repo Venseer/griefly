@@ -12,6 +12,8 @@ namespace
     const int O2_TANK_ENERGY = 5000;
 
     const int PLASMA_TANK_AMOUNT = 10000;
+
+    const int BASE_PRESSURE = 160000;
 }
 
 GasTank::GasTank()
@@ -28,7 +30,6 @@ GasTank::GasTank()
     open_ = false;
     atmos_holder_.AddGase(atmos::OXYGEN, O2_TANK_AMOUNT);
     atmos_holder_.AddEnergy(O2_TANK_ENERGY);
-    // atmos_holder_.SetVolume();
 }
 
 void GasTank::AfterWorldCreation()
@@ -75,8 +76,22 @@ void GasTank::Close()
     open_ = false;
 }
 
+namespace
+{
+
+const int OVERLAYS_SIZE = 4;
+const QString OVERLAYS_STATES[OVERLAYS_SIZE] = {"can-o0", "can-o1", "can-o2", "can-o3"};
+
+}
+
 void GasTank::Process()
 {
+    GetView()->RemoveOverlays();
+
+    const int pressure = GetAtmosHolder()->GetPressure();
+    const int overlay_id = std::min(std::max((pressure * OVERLAYS_SIZE) / BASE_PRESSURE, 0), OVERLAYS_SIZE - 1);
+    GetView()->AddOverlay("icons/atmos.dmi", OVERLAYS_STATES[overlay_id]);
+
     if (!open_)
     {
         return;
@@ -105,10 +120,10 @@ void MagicGasTank::Process()
     GetAtmosHolder()->RemoveGase(atmos::CO2, GetAtmosHolder()->GetGase(atmos::CO2));
     GetAtmosHolder()->RemoveGase(atmos::NYTROGEN, GetAtmosHolder()->GetGase(atmos::NYTROGEN));
 
-    int new_oxygen = qMax(0, O2_TANK_AMOUNT - GetAtmosHolder()->GetGase(atmos::OXYGEN));
+    const int new_oxygen = std::max(0, O2_TANK_AMOUNT - GetAtmosHolder()->GetGase(atmos::OXYGEN));
     GetAtmosHolder()->AddGase(atmos::OXYGEN, new_oxygen);
 
-    int new_energy = qMax(0, O2_TANK_ENERGY - GetAtmosHolder()->GetEnergy());
+    const int new_energy = std::max(0, O2_TANK_ENERGY - GetAtmosHolder()->GetEnergy());
     GetAtmosHolder()->AddEnergy(new_energy);
 }
 

@@ -19,45 +19,41 @@ void PhysicsEngine::Add(IdPtr<Movable> movable)
     to_add_.push_back(movable);
 }
 
-namespace
+std::pair<Dir, Vector> PhysicsEngine::ProcessForceTick(
+    const Vector& force, Dir main, Dir secondary,
+    qint32* error, qint32 error_per_main, int mass)
 {
-
-const qint32 ERROR_SCALE = 2048;
-
-}
-
-Dir PhysicsEngine::ProcessForceTick(
-    Vector* force, Dir main, Dir secondary, qint32* error,
-    qint32 error_per_main, int friction, int mass)
-{
-    // TODO: a-la Bresenham algo here
+    // TODO: use mass
     Q_UNUSED(mass)
-    Q_UNUSED(main)
-    Q_UNUSED(error)
-    const Dir retval = VDirToDir(*force);
-    if (friction == 0)
+
+    Dir retval = main;
+    Dir other = secondary;
+    if (*error >= ERROR_SCALE / 2)
     {
-        return retval;
-    }
-    // TODO: proper helper
-    if ((retval == Dir::NORTH) || (retval == Dir::SOUTH))
-    {
-        if (std::abs(force->y) < FORCE_UNIT)
-        {
-            return Dir::ALL;
-        }
+        std::swap(retval, other);
+        *error -= ERROR_SCALE;
     }
     else
     {
-        if (std::abs(force->x) < FORCE_UNIT)
+        *error += error_per_main;
+    }
+
+    if (ProjectionToDir(force, retval) < FORCE_UNIT)
+    {
+        *error = 0;
+        if (ProjectionToDir(force, other) >= FORCE_UNIT)
         {
-            return Dir::ALL;
+            std::swap(retval, other);
+        }
+        else
+        {
+            return {Dir::ALL, {0, 0, 0}};
         }
     }
+
     Vector temp = DirToVDir(retval);
     temp *= FORCE_UNIT;
-    *force -= temp;
-    return retval;
+    return {retval, temp};
 }
 
 void PhysicsEngine::ApplyForce(
@@ -83,7 +79,7 @@ void PhysicsEngine::ApplyForce(
 
     const int x = std::abs(force->x);
     const int y = std::abs(force->y);
-    *error_per_main = (std::min(x, y) * ERROR_SCALE) / std::max(x, y);
+    *error_per_main = (std::min(x, y) * ERROR_SCALE) / std::max(1, std::max(x, y));
 }
 
 void PhysicsEngine::ProcessPhysics()
@@ -97,7 +93,7 @@ void PhysicsEngine::ProcessPhysics()
         {
             continue;
         }
-        if (!IsNonZero((*movable)->force_))
+        if (!IsNonZero((*movable)->GetForce()))
         {
             continue;
         }
@@ -121,7 +117,7 @@ void PhysicsEngine::ProcessPhysics()
     for (auto movable = under_force_.begin(); movable != under_force_.end(); ++movable)
     {
         if (   !(*movable)
-            || !IsNonZero((*movable)->force_))
+            || !IsNonZero((*movable)->GetForce()))
         {
             continue;
         }
@@ -135,7 +131,7 @@ void PhysicsEngine::Clear()
     for (auto movable = under_force_.begin(); movable != under_force_.end(); ++movable)
     {
         if (   !(*movable)
-            || !IsNonZero((*movable)->force_))
+            || !IsNonZero((*movable)->GetForce()))
         {
             to_remove.push_back(*movable);
         }

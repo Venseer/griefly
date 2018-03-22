@@ -135,7 +135,8 @@ void Human::ProcessMessage(const Message& message)
         && !lying_
         && friction::CombinedFriction(GetTurf()))
     {
-        if (qAbs(force_.x) + qAbs(force_.y) + qAbs(force_.z) < (4 * FORCE_UNIT))
+        const Vector& force = GetForce();
+        if (std::abs(force.x) + std::abs(force.y) + std::abs(force.z) < (4 * FORCE_UNIT))
         {
             if (IsKey(message.data, Input::MOVE_UP))
             {
@@ -533,7 +534,7 @@ void Human::CalculateVisible(QVector<Position>* visible_list) const
     }
 }
 
-void Human::Bump(IdPtr<Movable> item)
+void Human::Bump(const Vector& force, IdPtr<Movable> item)
 {
     if (IdPtr<Projectile> projectile = item)
     {
@@ -545,7 +546,7 @@ void Human::Bump(IdPtr<Movable> item)
         // TODO (?): sound
         return;
     }
-    Movable::Bump(item);
+    Movable::Bump(force, item);
 }
 
 void Human::RotationAction(IdPtr<MapObject> item)

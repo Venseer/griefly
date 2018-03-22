@@ -39,12 +39,12 @@ void MapObject::SetTurf(IdPtr<Turf> turf)
     }
 }
 
-void MapObject::Bump(IdPtr<Movable> item)
+void MapObject::Bump(const Vector& force, IdPtr<Movable> item)
 {
    // nothing
 }
 
-void MapObject::BumpByGas(Dir dir, bool inside)
+void MapObject::BumpByGas(const Vector& force, bool inside)
 {
    // nothing
 }

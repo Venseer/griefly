@@ -51,20 +51,29 @@ void Movable::ProcessForce()
         return;
     }
 
-    const Dir step = PhysicsEngine::ProcessForceTick(
-        &force_,
+    const std::pair<Dir, Vector> step = PhysicsEngine::ProcessForceTick(
+        force_,
         main_force_direction_,
         secondary_force_direction_,
         &force_error_,
         force_error_per_main_,
-        friction::CombinedFriction(GetTurf()),
         1);
-    if (step == Dir::ALL)
+    if (step.first == Dir::ALL)
     {
         return;
     }
 
-    TryMove(step);
+    if (!TryMove(step.first))
+    {
+        force_error_ = 0;
+        force_ = {0, 0, 0};
+        return;
+    }
+
+    if (friction::CombinedFriction(GetTurf()))
+    {
+        force_ -= step.second;
+    }
 }
 
 void Movable::ApplyForce(Vector force)
@@ -106,10 +115,8 @@ bool Movable::CheckPassable()
     auto owner = GetOwner();
     if (!CanPass(owner->GetPassable(GetDir()), passable_level))
     {
-        owner->Bump(GetId());
-        force_.x = 0;
-        force_.y = 0;
-        force_.z = 0;
+        owner->Bump(force_, GetId());
+        force_ = {0, 0, 0};
         if (loc != passable::FULL)
         {
             SetPassable(GetDir(), loc);
@@ -125,10 +132,8 @@ bool Movable::CheckPassable()
     if (   !CanPass(neighbour->GetPassable(Dir::ALL), passable_level)
         || !CanPass(neighbour->GetPassable(RevertDir(GetDir())), passable_level))
     {
-        neighbour->Bump(GetId());
-        force_.x = 0;
-        force_.y = 0;
-        force_.z = 0;
+        neighbour->Bump(force_, GetId());
+        force_ = {0, 0, 0};
         return false;
     }
     
@@ -172,15 +177,15 @@ void Movable::Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob)
     frame->Append(entity);
 }
 
-void Movable::Bump(IdPtr<Movable> item)
+void Movable::Bump(const Vector& force, IdPtr<Movable> item)
 {
     if (IdPtr<Mob> mob = item)
     {
-        ApplyForce(DirToVDir(mob->GetDir()) * FORCE_UNIT);
+        ApplyForce(force);
     }
 }
 
-void Movable::BumpByGas(Dir dir, bool inside)
+void Movable::BumpByGas(const Vector& force, bool inside)
 {
-    ApplyForce(DirToVDir(dir) * FORCE_UNIT);
+    ApplyForce(force);
 }
