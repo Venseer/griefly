@@ -14,17 +14,28 @@ public:
     DECLARE_SAVEABLE(GasTank, Movable);
     REGISTER_CLASS_AS(GasTank);
     GasTank();
+
     virtual void AfterWorldCreation() override;
 
     virtual void AttackBy(IdPtr<Item> item) override;
     virtual void Process() override;
 
+    virtual void ApplyFire(int intensity) override;
+
     virtual atmos::AtmosHolder* GetAtmosHolder() override { return &atmos_holder_; }
 private:
     void Open();
     void Close();
+    void Break();
 
-    bool KV_SAVEABLE(open_);
+    enum State
+    {
+        OPEN,
+        CLOSED,
+        BROKEN
+    };
+
+    qint32 KV_SAVEABLE(state_);
     atmos::AtmosHolder KV_SAVEABLE(atmos_holder_);
 };
 END_DECLARE(GasTank);
