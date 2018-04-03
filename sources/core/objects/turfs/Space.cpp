@@ -1,4 +1,4 @@
-#include "SpaceTurf.h"
+#include "Space.h"
 
 #include "SynchronizedRandom.h"
 
@@ -14,13 +14,13 @@ Space::Space()
     SetAtmosState(atmos::SPACE);
 
     SetPassable(Dir::ALL, passable::FULL);
-    transparent = true;
-    
+    SetTransparency(true);
+
     SetFriction(0);
 
     SetSprite("icons/space.dmi");
     SetState("10");
-    name = "Space";
+    SetName("Space");
 }
 
 void Space::AfterWorldCreation()

@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "objects/test/PressureIndicator.h"
-#include "objects/turfs/SpaceTurf.h"
+#include "objects/turfs/Space.h"
 
 TEST(CoreInterface, FrameDataAndNestedStructsConstructors)
 {
@@ -171,7 +171,7 @@ TEST(CoreInterface, GrowingFrame)
 
 TEST(CoreInterface, ObjectsMetadata)
 {
-    kv::CoreInterface::ObjectsMetadata metadata
+    const kv::CoreInterface::ObjectsMetadata metadata
         = kv::GetCoreInstance().GetObjectsMetadata();
 
     EXPECT_FALSE(metadata.isEmpty());
@@ -194,8 +194,8 @@ TEST(CoreInterface, ObjectsMetadata)
         EXPECT_FALSE(indicator_metadata.turf);
         ASSERT_EQ(indicator_metadata.variables.size(), 11);
 
-        EXPECT_TRUE(indicator_metadata.variables.contains("transparent"));
-        EXPECT_TRUE(indicator_metadata.variables.contains("name"));
+        EXPECT_TRUE(indicator_metadata.variables.contains("transparent_"));
+        EXPECT_TRUE(indicator_metadata.variables.contains("name_"));
         EXPECT_TRUE(indicator_metadata.variables.contains("view_"));
         EXPECT_TRUE(indicator_metadata.variables.contains("owner_"));
         EXPECT_FALSE(indicator_metadata.variables.contains("id_"));
@@ -209,8 +209,8 @@ TEST(CoreInterface, ObjectsMetadata)
         EXPECT_TRUE(space_metadata.turf);
         ASSERT_EQ(space_metadata.variables.size(), 13);
 
-        EXPECT_TRUE(space_metadata.variables.contains("transparent"));
-        EXPECT_TRUE(space_metadata.variables.contains("name"));
+        EXPECT_TRUE(space_metadata.variables.contains("transparent_"));
+        EXPECT_TRUE(space_metadata.variables.contains("name_"));
         EXPECT_TRUE(space_metadata.variables.contains("view_"));
         EXPECT_TRUE(space_metadata.variables.contains("owner_"));
         EXPECT_TRUE(space_metadata.variables.contains("atmos_state_"));

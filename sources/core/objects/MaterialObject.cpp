@@ -46,6 +46,6 @@ MaterialObject::MaterialObject()
 
     passable_level = passable::FULL;
 
-    transparent = true;
-    name = "nameless";
+    SetTransparency(true);
+    SetName("nameless");
 }

@@ -11,7 +11,7 @@ using namespace kv;
 
 MetalWall::MetalWall()
 {
-    transparent = false;
+    SetTransparency(false);
     SetPassable(Dir::ALL, passable::EMPTY);
 
     v_level = 2;
@@ -19,7 +19,7 @@ MetalWall::MetalWall()
     SetSprite("icons/walls.dmi");
     SetState("metal0");
 
-    name = "Metal wall";
+    SetName("Metal wall");
 }
 
 void MetalWall::AttackBy(IdPtr<Item> item)
@@ -39,7 +39,7 @@ void MetalWall::AttackBy(IdPtr<Item> item)
 
 ReinforcedWall::ReinforcedWall()
 {
-    transparent = false;
+    SetTransparency(false);
     SetPassable(Dir::ALL, passable::EMPTY);
 
     v_level = 2;
@@ -47,5 +47,5 @@ ReinforcedWall::ReinforcedWall()
     SetSprite("icons/walls.dmi");
     SetState("r_wall");
 
-    name = "Reinforced wall";
+    SetName("Reinforced wall");
 }

@@ -10,13 +10,13 @@ using namespace kv;
 
 Floor::Floor()
 {
-    transparent = true;
+    SetTransparency(true);
     SetPassable(Dir::ALL, passable::FULL);
 
     SetSprite("icons/floors.dmi");
     SetState("floor");
 
-    name = "Floor";
+    SetName("Floor");
 
     floor_type_ = "floor";
     open_ = false;

@@ -4,14 +4,14 @@ using namespace kv;
 
 WallSign::WallSign()
 {
-    transparent = true;
+    SetTransparency(true);
     SetPassable(Dir::ALL, passable::FULL);
     v_level = 6;
 
     SetSprite("icons/decals.dmi");
     SetState("bluecross2"); 
 
-    name = "Sign";
+    SetName("Sign");
 
     sign_type_ = "bluecross2";
 }

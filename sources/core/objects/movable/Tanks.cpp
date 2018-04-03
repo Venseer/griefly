@@ -6,11 +6,11 @@ using namespace kv;
 
 FuelTank::FuelTank()
 {
-    name = "Fueltank";
+    SetName("Fueltank");
 
     v_level = 6;
 
-    transparent = true;
+    SetTransparency(true);
 
     SetSprite("icons/objects.dmi");
     SetState("weldtank");
@@ -29,11 +29,11 @@ void FuelTank::AttackBy(IdPtr<Item> item)
 
 WaterTank::WaterTank()
 {
-    name = "Watertank";
+    SetName("Watertank");
 
     v_level = 6;
 
-    transparent = true;
+    SetTransparency(true);
 
     SetSprite("icons/objects.dmi");
     SetState("watertank");

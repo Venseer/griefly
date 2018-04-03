@@ -10,7 +10,7 @@ using namespace kv;
 
 Grille::Grille()
 {
-    transparent = true;
+    SetTransparency(true);
     SetPassable(Dir::ALL, passable::AIR);
 
     tick_speed_ = 5;
@@ -21,7 +21,7 @@ Grille::Grille()
     SetSprite("icons/structures.dmi");
     SetState("grille");
 
-    name = "Grille";
+    SetName("Grille");
 
     cutted_ = false;
 }

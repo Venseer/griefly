@@ -6,14 +6,14 @@ Bullet::Bullet()
 {
     damage_ = 20;
     SetState("bullet");
-    name = "Bullet";
+    SetName("Bullet");
 }
 
 Laser::Laser()
 {
     burn_damage_ = 10;
     SetState("laser");
-    name = "Laser";
+    SetName("Laser");
 }
 
 bool Laser::CheckPassable()
@@ -26,11 +26,11 @@ bool Laser::CheckPassable()
         }
     }
     auto tile = GetOwner();
-    if (tile->IsTransparent())
+    if (tile->Istransparent())
     {
         auto nearby = tile->GetNeighbour(GetDir());
         // Check for map borders
-        if ((nearby != tile) && nearby->IsTransparent())
+        if ((nearby != tile) && nearby->Istransparent())
         {
             return true;
         }
