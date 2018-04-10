@@ -9,23 +9,23 @@ using namespace kv;
 
 void MaterialObject::SetSprite(const QString& sprite)
 {
-    view_.SetSprite(sprite);
+    GetView().SetSprite(sprite);
 }
 
 void MaterialObject::SetState(const QString& name)
 {
-    view_.SetState(name);
+    GetView().SetState(name);
 }
 
-void MaterialObject::Represent(GrowingFrame* frame, IdPtr<Mob> mob)
+void MaterialObject::Represent(GrowingFrame* frame, IdPtr<Mob> mob) const
 { 
     FrameData::Entity ent;
     ent.id = GetId();
     ent.click_id = GetId();
     ent.pos_x = GetPosition().x;
     ent.pos_y = GetPosition().y;
-    ent.vlevel = v_level;
-    ent.view = GetView()->GetRawData();
+    ent.vlevel = GetVisibleLevel();
+    ent.view = GetView().GetRawData();
     ent.dir = Dir::SOUTH;
     frame->Append(ent);
 }
@@ -37,14 +37,15 @@ void MaterialObject::Delete()
 
 MaterialObject::MaterialObject()
 {
-    v_level = 0;
-    passable_all = passable::FULL;
-    passable_up = passable::FULL;
-    passable_down = passable::FULL;
-    passable_left = passable::FULL;
-    passable_right = passable::FULL;
+    SetVisibleLevel(0);
 
-    passable_level = passable::FULL;
+    passable_all_ = passable::FULL;
+    passable_up_ = passable::FULL;
+    passable_down_ = passable::FULL;
+    passable_left_ = passable::FULL;
+    passable_right_ = passable::FULL;
+
+    SetPassableLevel(passable::FULL);
 
     SetTransparency(true);
     SetName("nameless");

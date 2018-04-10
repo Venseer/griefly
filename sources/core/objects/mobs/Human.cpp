@@ -44,14 +44,14 @@ void Human::Hear(const Phrase& phrase)
 
 Human::Human()
 {
-    tick_speed_ = 1;
+    SetTickSpeed(1);
     SetSprite("icons/human.dmi");
     SetState("african1_m_s");
     SetPassable(Dir::ALL, passable::BIG_ITEM);
-    v_level = 9;
+    SetVisibleLevel(9);
     attack_cooldown_ = 0;
     SetName("Morgan James");
-    passable_level = passable::BIG_CREATURE;
+    SetPassableLevel(passable::BIG_CREATURE);
 
     lay_timer_ = 0;
 
@@ -299,8 +299,8 @@ void Human::ProcessMessage(const Message& message)
 
 void Human::UpdateOverlays()
 {
-    view_.RemoveOverlays();
-    interface_->AddOverlays(&view_);
+    GetView().RemoveOverlays();
+    interface_->AddOverlays(&GetView());
 }
 
 void Human::Process()
@@ -327,16 +327,16 @@ void Human::SetLaying(bool value)
     if (lying_)
     {
         PostVisible(GetName() + " is lying now", GetPosition());
-        view_.SetAngle(90);
+        GetView().SetAngle(90);
         SetPassable(Dir::ALL, passable::FULL);
-        v_level = 8;
+        SetVisibleLevel(8);
     }
     else
     {
         PostVisible(GetName() + " is standing now!", GetPosition());
-        view_.SetAngle(0);
+        GetView().SetAngle(0);
         SetPassable(Dir::ALL, passable::BIG_ITEM);
-        v_level = 9;
+        SetVisibleLevel(9);
     }
     interface_->UpdateLaying(lying_);
 }
@@ -502,15 +502,15 @@ void Human::AttackBy(IdPtr<Item> item)
     }
 }
 
-void Human::Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob)
+void Human::Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob) const
 {
     FrameData::Entity ent;
     ent.id = GetId();
     ent.click_id = GetId();
     ent.pos_x = GetPosition().x;
     ent.pos_y = GetPosition().y;
-    ent.vlevel = v_level;
-    ent.view = GetView()->GetRawData();
+    ent.vlevel = GetVisibleLevel();
+    ent.view = GetView().GetRawData();
     if (!lying_)
     {
         ent.dir = GetDir();
@@ -553,7 +553,7 @@ void Human::RotationAction(IdPtr<MapObject> item)
 {
     if (IdPtr<Movable> movable = item)
     {
-        if (!movable->anchored_)
+        if (!movable->IsAnchored())
         {
             if (IdPtr<Projectile> projectile = movable)
             {
@@ -649,12 +649,12 @@ void Human::ApplyBruteDamage(int damage)
 
         if (IdPtr<Floor> floor = GetTurf())
         {
-            if (!floor->bloody)
+            if (!floor->IsBloody())
             {
-                floor->GetView()->AddOverlay(
+                floor->GetView().AddOverlay(
                     "icons/blood.dmi",
                     QString("floor%1").arg(blood_value));
-                floor->bloody = true;
+                floor->SetBloody(true);
             }
         }
     }

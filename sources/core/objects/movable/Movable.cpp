@@ -113,7 +113,7 @@ bool Movable::CheckPassable()
         SetPassable(GetDir(), passable::FULL);
     }
     auto owner = GetOwner();
-    if (!CanPass(owner->GetPassable(GetDir()), passable_level))
+    if (!CanPass(owner->GetPassable(GetDir()), GetPassableLevel()))
     {
         owner->Bump(force_, GetId());
         force_ = {0, 0, 0};
@@ -129,8 +129,8 @@ bool Movable::CheckPassable()
     }
 
     auto neighbour = owner->GetNeighbour(GetDir());
-    if (   !CanPass(neighbour->GetPassable(Dir::ALL), passable_level)
-        || !CanPass(neighbour->GetPassable(RevertDir(GetDir())), passable_level))
+    if (   !CanPass(neighbour->GetPassable(Dir::ALL), GetPassableLevel())
+        || !CanPass(neighbour->GetPassable(RevertDir(GetDir())), GetPassableLevel()))
     {
         neighbour->Bump(force_, GetId());
         force_ = {0, 0, 0};
@@ -161,7 +161,7 @@ bool Movable::MainMove()
     return true;
 }
 
-void Movable::Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob)
+void Movable::Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob) const
 {
     FrameData::Entity entity;
     entity.id = GetId();
@@ -171,8 +171,8 @@ void Movable::Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob)
     entity.pos_x = position.x;
     entity.pos_y = position.y;
 
-    entity.vlevel = v_level;
-    entity.view = GetView()->GetRawData();
+    entity.vlevel = GetVisibleLevel();
+    entity.view = GetView().GetRawData();
     entity.dir = GetDir();
     frame->Append(entity);
 }

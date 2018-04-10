@@ -7,8 +7,8 @@ using namespace kv;
 
 PipeBase::PipeBase()
 {
-    anchored_ = true;
-    v_level = 1;
+    SetAnchored(true);
+    SetVisibleLevel(1);
 
     SetSprite("icons/pipes.dmi");
     //SetState("intact");
@@ -240,7 +240,7 @@ Vent::Vent()
 
     SetHidden(false);
 
-    v_level = 3;
+    SetVisibleLevel(3);
 
     SetName("Vent");
 }
@@ -337,7 +337,7 @@ void Valve::AttackBy(IdPtr<Item> item)
 Connector::Connector()
 {
     SetState("connector");
-    v_level = 3;
+    SetVisibleLevel(3);
 
     SetName("Connector");
 }
@@ -375,7 +375,7 @@ void Connector::AfterWorldCreation()
     if (auto tank = GetOwner()->GetItem<GasTank>())
     {
         ConnectToGasTank(tank);
-        tank->anchored_ = true;
+        tank->SetAnchored(true);
     }
 }
 

@@ -136,13 +136,13 @@ public:
     {
         return owner_->GetPosition();
     }
-    virtual void Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob)
+    virtual void Represent(GrowingFrame* frame, IdPtr<kv::Mob> mob) const
     {
         Q_UNUSED(frame)
         Q_UNUSED(mob)
     }
     virtual void UpdatePassable() { }
-    virtual IdPtr<Turf> GetTurf();
+    virtual IdPtr<Turf> GetTurf() const;
     virtual void SetTurf(IdPtr<Turf> turf);
     IdPtr<MapObject> GetRoot();
     void PlaySoundIfVisible(const QString& name);

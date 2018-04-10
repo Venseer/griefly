@@ -6,13 +6,13 @@ using namespace kv;
 
 Item::Item()
 {
-    passable_level = passable::SMALL_ITEM;
+    SetPassableLevel(passable::SMALL_ITEM);
 
     type = SlotType::DEFAULT;
 
     damage = 0;
 
-    v_level = 5;
+    SetVisibleLevel(5);
     SetSprite("icons/items.dmi");
 }
 

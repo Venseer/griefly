@@ -19,8 +19,9 @@ Floor::Floor()
     SetName("Floor");
 
     floor_type_ = "floor";
+
     open_ = false;
-    bloody = false;
+    SetBloody(false);
 }
 
 void Floor::AfterWorldCreation()
@@ -51,14 +52,14 @@ void Floor::AttackBy(IdPtr<Item> item)
     }
 }
 
-void Floor::SetOpen(bool o)
+void Floor::SetOpen(bool open)
 {
     //qDebug() << "Start set open " << owner->GetId();
-    open_ = o;
+    open_ = open;
     if (open_)
     {
         SetState("plating");
-        v_level = 0;
+        SetVisibleLevel(0);
         if (auto vent = GetOwner()->GetItem<Vent>())
         {
             vent->SetHidden(false);
@@ -67,13 +68,13 @@ void Floor::SetOpen(bool o)
     else
     {
         SetState(floor_type_);
-        v_level = 2;
+        SetVisibleLevel(2);
         if (auto vent = GetOwner()->GetItem<Vent>())
         {
             vent->SetHidden(true);
         }
     }
-    GetView()->RemoveOverlays();
+    GetView().RemoveOverlays();
     //qDebug() << "End setopen";
 }
 

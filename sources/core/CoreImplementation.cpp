@@ -42,6 +42,7 @@ kv::CoreInterface::ObjectsMetadata GenerateMetadata()
     for (auto it : (*GetItemsCreators()))
     {
         std::unique_ptr<kv::Object> object(it.second());
+
         kv::MaterialObject* material = CastTo<kv::MaterialObject>(object.get());
         if (!material)
         {
@@ -51,7 +52,7 @@ kv::CoreInterface::ObjectsMetadata GenerateMetadata()
 
         kv::CoreInterface::ObjectMetadata metadata;
         metadata.name = it.first;
-        metadata.default_view = material->GetView()->GetRawData();
+        metadata.default_view = material->GetView().GetRawData();
         metadata.turf = false;
 
         if (CastTo<kv::Turf>(object.get()))
@@ -147,7 +148,7 @@ void WorldImplementation::ProcessHearers()
     QVector<IdPtr<Object>>& hearers = global_objects_->hearers;
     QVector<IdPtr<Object>> deleted_hearers;
 
-    for (const IdPtr<Object>& hearer : qAsConst(hearers))
+    for (IdPtr<Object>& hearer : hearers)
     {
         if (!hearer.IsValid())
         {

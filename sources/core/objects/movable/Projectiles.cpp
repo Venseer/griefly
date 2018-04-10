@@ -8,10 +8,11 @@ Projectile::Projectile()
     damage_ = 0;
     burn_damage_ = 0;
     SetSprite("icons/projectiles.dmi");
-    v_level = 6;
+    SetVisibleLevel(6);
     current_step_ = 0;
-    tick_speed_ = 1;
-    passable_level = passable::SMALL_ITEM;
+
+    SetTickSpeed(1);
+    SetPassableLevel(passable::SMALL_ITEM);
     harmless_ = true;
 }
 

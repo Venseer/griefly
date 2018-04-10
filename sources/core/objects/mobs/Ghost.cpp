@@ -12,14 +12,14 @@ using namespace kv;
 
 Ghost::Ghost()
 {
-    tick_speed_ = 1;
+    SetTickSpeed(1);
 
-    v_level = 11;
+    SetVisibleLevel(11);
 
     SetSprite("icons/mob.dmi");
     SetState("ghost_grey");
 
-    passable_level = passable::EMPTY;
+    SetPassableLevel(passable::EMPTY);
 
     SetName("Ghost");
 
@@ -32,7 +32,7 @@ void Ghost::AfterWorldCreation()
     SetFreq(10);
 }
 
-void Ghost::Represent(GrowingFrame* frame, IdPtr<Mob> mob)
+void Ghost::Represent(GrowingFrame* frame, IdPtr<Mob> mob) const
 {
     if (IdPtr<Ghost> ghost = mob)
     {
