@@ -14,7 +14,7 @@ MetalWall::MetalWall()
     SetTransparency(false);
     SetPassable(Dir::ALL, passable::EMPTY);
 
-    SetVisibleLevel(2);
+    SetVisibleLevel(visible_level::HIGH_TURF);
 
     SetSprite("icons/walls.dmi");
     SetState("metal0");
@@ -29,9 +29,9 @@ void MetalWall::AttackBy(IdPtr<Item> item)
         if (wtool->IsWorking())
         {
             PlaySoundIfVisible("Welder.wav");
-            Create<MaterialObject>(Girder::GetTypeStatic(), GetOwner());
-            Create<MaterialObject>(Metal::GetTypeStatic(), GetOwner());
-            Create<Turf>(Plating::GetTypeStatic(), GetOwner());
+            Create<Girder>(GetOwner());
+            Create<Metal>(GetOwner());
+            Create<Plating>(GetOwner());
             Delete();
         }
     }
@@ -42,7 +42,7 @@ ReinforcedWall::ReinforcedWall()
     SetTransparency(false);
     SetPassable(Dir::ALL, passable::EMPTY);
 
-    SetVisibleLevel(2);
+    SetVisibleLevel(visible_level::HIGH_TURF);
 
     SetSprite("icons/walls.dmi");
     SetState("r_wall");

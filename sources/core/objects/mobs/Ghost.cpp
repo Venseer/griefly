@@ -14,7 +14,7 @@ Ghost::Ghost()
 {
     SetTickSpeed(1);
 
-    SetVisibleLevel(11);
+    SetVisibleLevel(visible_level::GHOST);
 
     SetSprite("icons/mob.dmi");
     SetState("ghost_grey");
@@ -93,7 +93,7 @@ void Ghost::Process()
     {
         if (IsMinded())
         {
-            auto login_mob = Create<Mob>(LoginMob::GetTypeStatic(), 0);
+            auto login_mob = Create<LoginMob>();
             MoveMindTo(login_mob);
             Delete();
         }

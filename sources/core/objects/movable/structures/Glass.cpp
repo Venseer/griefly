@@ -15,7 +15,7 @@ FlatGlass::FlatGlass()
     SetTickSpeed(5);
     SetHitPoints(20);
 
-    SetVisibleLevel(9);
+    SetVisibleLevel(visible_level::STANDING_MOB);
 
     SetSprite("icons/structures.dmi");
     SetState("window");
@@ -79,7 +79,7 @@ void FlatGlass::Break()
 {
     QString sound = QString("Glassbr%1.wav").arg(GenerateRandom() % 3 + 1);
     PlaySoundIfVisible(sound);
-    Create<Item>(Shard::GetTypeStatic(), GetOwner());
+    Create<Shard>(GetOwner());
     Delete();
 }
 
