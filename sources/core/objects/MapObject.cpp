@@ -6,9 +6,15 @@
 
 using namespace kv;
 
-void PerformAttack(IdPtr<MapObject> target, IdPtr<Item> item)
+void kv::PerformAttack(IdPtr<MapObject> target, IdPtr<Item> item)
 {
-    item->Attack(target);
+    if (item.IsValid())
+    {
+        if (!item->Attack(target))
+        {
+            return;
+        }
+    }
     // 'item' or 'target' can be invalidated in the Attack method
     if (item.IsValid() && target.IsValid())
     {
