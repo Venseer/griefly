@@ -45,14 +45,12 @@ bool Closet::CanTouch(IdPtr<MapObject> item) const
 
 void Closet::AttackBy(IdPtr<Item> item)
 {
-    if (item)
-    {
-        return;
-    }
-
     if (open_)
     {
-        Close();
+        if (IdPtr<Hand> hand = item)
+        {
+            Close();
+        }
     }
     else
     {
@@ -131,10 +129,7 @@ void Closet::Delete()
     QVector<IdPtr<Movable>> copy = content_;
     for (auto it = copy.begin(); it != copy.end(); ++it)
     {
-        if (!it->IsValid())
-        {
-            kv::Abort("Closet contains invalid id_ptr_on");
-        }
+        kv::Assert(it->IsValid(), "Closet contains invalid id_ptr_on");
         (*it)->Delete();
     }
     Movable::Delete();
@@ -183,20 +178,21 @@ SecurityLocker::SecurityLocker()
 
 void SecurityLocker::AttackBy(IdPtr<Item> item)
 {
-    if (item.IsValid())
+    if (!open_)
     {
-        if (!open_)
+        if (locked_)
         {
-            if (locked_)
-            {
-                Unlock();
-            }
-            else
-            {
-                Lock();
-            }
-            return;
+            Unlock();
         }
+        else if (IdPtr<Hand> hand = item)
+        {
+            // Nothing
+        }
+        else
+        {
+            Lock();
+        }
+        return;
     }
     Closet::AttackBy(item);
 }

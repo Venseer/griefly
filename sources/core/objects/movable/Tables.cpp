@@ -265,18 +265,11 @@ void Table::UpdateSprite(quint32 ignored_table)
         SetState(GetMaterial() + "_table_d0");
     }
 }
-void Table::AttackBy(IdPtr<Item> item)
+void Table::AttackBy(IdPtr<Item> /*item*/)
 {
-    if (item.IsValid())
-    {
-        if (IdPtr<Human> human = item->GetOwner())
-        {
-            GetOwner()->AddObject(item);
-            human->GetHumanInterface()->DropItem();
-            human->UpdateOverlays();
-        }
-    }
+    // TODO: wrench
 }
+
 int Table::CheckTable(IdPtr<MapObject> container, quint32 ignored_table)
 {
     IdPtr<Table> table = container->GetItem<Table>();

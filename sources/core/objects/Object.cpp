@@ -43,19 +43,9 @@ void Object::Load(FastDeserializer& deserializer)
 
 void Object::SetFreq(int freq)
 {
-    if (game_ == nullptr)
-    {
-        kv::Abort("SetFreq is called in constructor");
-    }
+    kv::Assert(game_, "SetFreq is called in constructor");
 
     how_often_ = freq;
-
-    // TODO: Why is it here?
-    if (!GetId())
-    {
-        kv::Abort("GetId() is zero");
-    }
-
     if (how_often_ != 0)
     {
         GetGame().GetProcessor().Add(GetId());
@@ -64,10 +54,7 @@ void Object::SetFreq(int freq)
 
 const GameInterface& Object::GetGame() const
 {
-    if (game_ == nullptr)
-    {
-        kv::Abort("Object::GetGame() is called during construction of object");
-    }
+    kv::Assert(game_, "Object::GetGame() is called during construction of object");
     return *game_;
 }
 
@@ -78,10 +65,7 @@ ObjectFactoryInterface& Object::GetFactory()
 
 GameInterface& Object::GetGame()
 {
-    if (game_ == nullptr)
-    {
-        kv::Abort("Object::GetGame() is called during construction of object");
-    }
+    kv::Assert(game_, "Object::GetGame() is called during construction of object");
     return *game_;
 }
 
