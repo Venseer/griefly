@@ -7,49 +7,100 @@
 namespace kv
 {
 
-// TODO: better namespaces
+namespace impl
+{
+
+template<class T, class Unused = void>
+struct TypeName;
+
+template<>
+struct TypeName<bool>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::BOOL;
+    }
+    TypeName() = delete;
+};
+
+template<>
+struct TypeName<qint32>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::INT32;
+    }
+    TypeName() = delete;
+};
+
+template<>
+struct TypeName<quint32>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::UINT32;
+    }
+    TypeName() = delete;
+};
+
+template<>
+struct TypeName<QString>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::STRING;
+    }
+    TypeName() = delete;
+};
+
+template<>
+struct TypeName<QByteArray>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::BYTEARRAY;
+    }
+    TypeName() = delete;
+};
+
+template<>
+struct TypeName<qint64>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::INT64;
+    }
+    TypeName() = delete;
+};
+
+template<class T>
+struct TypeName<T, std::enable_if_t<std::is_enum<T>::value, void>>
+{
+    static QString Get()
+    {
+        return TypeName<std::underlying_type_t<T>>::Get();
+    }
+    TypeName() = delete;
+};
+
+template<class T>
+// TODO: better solution with real default value
+struct TypeName<T, std::enable_if_t<!std::is_enum<T>::value, void>>
+{
+    static QString Get()
+    {
+        return mapgen::key::type::UNKNOWN;
+    }
+    TypeName() = delete;
+};
+
+} // namespace impl
 
 template<class T>
 QString GetTypeName()
 {
-    return mapgen::key::type::UNKNOWN;
+    return impl::TypeName<T>::Get();
 };
-
-template<>
-QString GetTypeName<bool>()
-{
-    return mapgen::key::type::BOOL;
-}
-
-template<>
-QString GetTypeName<qint32>()
-{
-    return mapgen::key::type::INT32;
-}
-
-template<>
-QString GetTypeName<quint32>()
-{
-    return mapgen::key::type::UINT32;
-}
-
-template<>
-QString GetTypeName<QString>()
-{
-    return mapgen::key::type::STRING;
-}
-
-template<>
-QString GetTypeName<QByteArray>()
-{
-    return mapgen::key::type::BYTEARRAY;
-}
-
-template<>
-QString GetTypeName<qint64>()
-{
-    return mapgen::key::type::INT64;
-}
 
 } // namespace kv
 
