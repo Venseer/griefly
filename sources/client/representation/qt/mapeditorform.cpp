@@ -11,6 +11,7 @@
 #include <set>
 
 #include <QBitmap>
+#include <QDir>
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
 #include <QDebug>
@@ -659,7 +660,37 @@ void MapEditorForm::on_unset_value_push_button_clicked()
     on_listWidgetVariables_itemSelectionChanged();
 }
 
+namespace
+{
+
+namespace key
+{
+
+const QString IS_TURF("is_turf");
+const QString SPRITE("sprite");
+const QString SPRITE_STATE("sprite_state");
+const QString TYPENAME("typename");
+const QString VARIABLES("variables");
+const QString NAME("name");
+const QString TYPE("type");
+
+}
+
+} // namespace
+
 void MapEditorForm::LoadAssets()
 {
-    // TODO: load assets
+    QDir dir("assets/");
+    const QStringList& files = dir.entryList({"*.json"});
+    for (const QString& filename : files)
+    {
+        QFile file(dir.path() + "/" + filename);
+        if (!file.open(QIODevice::ReadOnly))
+        {
+            qDebug() << "Unable to open" << file.fileName();
+            continue;
+        }
+        QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+        qDebug() << document.object();
+    }
 }
