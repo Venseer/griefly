@@ -19,6 +19,7 @@
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QJsonDocument>
+#include <QJsonArray>
 
 using namespace kv;
 
@@ -65,16 +66,20 @@ MapEditorForm::MapEditorForm(QWidget *parent)
 
     SetSpriter(new SpriteHolder);
 
+    LoadAssets();
+
     qDebug() << "Start generate images for creators";
-    objects_metadata_ = kv::GetCoreInstance().GetObjectsMetadata();
-    for (const kv::CoreInterface::ObjectMetadata& metadata : qAsConst(objects_metadata_))
+
+    for (const Asset& asset : qAsConst(assets_))
     {
-        const RawViewInfo& view_info = metadata.default_view;
+        RawViewInfo view_info;
+        view_info.base_frameset.sprite_name = asset.sprite;
+        view_info.base_frameset.state = asset.state;
 
         if (   view_info.base_frameset.sprite_name.isEmpty()
             || view_info.base_frameset.state.isEmpty())
         {
-            qDebug() << "EMPTY frameset:" << metadata.name;
+            qDebug() << "EMPTY frameset:" << asset.asset_name;
             continue;
         }
 
@@ -85,7 +90,7 @@ MapEditorForm::MapEditorForm(QWidget *parent)
 
         if (view.GetBaseFrameset().GetMetadata() == nullptr)
         {
-            qDebug() << "EMPTY metadata:" << metadata.name;
+            qDebug() << "EMPTY metadata:" << asset.asset_name;
             continue;
         }
 
@@ -101,7 +106,7 @@ MapEditorForm::MapEditorForm(QWidget *parent)
 
             images.push_back(QPixmap::fromImage(img));
         }
-        map_editor_->AddItemType(metadata.name, images);
+        map_editor_->AddItemType(asset.asset_name, images);
 
         if (images.length() == 0)
         {
@@ -109,22 +114,20 @@ MapEditorForm::MapEditorForm(QWidget *parent)
         }
 
         QListWidgetItem* new_item
-            = new QListWidgetItem(QIcon(images[0]), metadata.name);
+            = new QListWidgetItem(QIcon(images[0]), asset.asset_name);
 
-        if (!metadata.turf)
+        if (!asset.turf)
         {
-            types_.push_back(metadata.name);
+            types_.push_back(asset.asset_name);
             ui->listWidget->addItem(new_item);
         }
         else
         {
-            turf_types_.push_back(metadata.name);
-            map_editor_->AddTurfType(metadata.name);
+            turf_types_.push_back(asset.asset_name);
+            map_editor_->AddTurfType(asset.asset_name);
             ui->listWidgetTurf->addItem(new_item);
         }
     }
-
-    LoadAssets();
 
     qDebug() << "End generating";
     showMaximized();
@@ -235,9 +238,12 @@ void MapEditorForm::on_listWidgetTile_itemSelectionChanged()
 
     const QString item_type = GetCurrentEditorEntry()->item_type;
 
-    const kv::CoreInterface::ObjectsMetadata& objects_metadata = objects_metadata_;
-    auto it = objects_metadata.find(item_type);
-    if (it == objects_metadata.end())
+    auto it = std::find_if(assets_.begin(), assets_.end(),
+    [&](const Asset& asset)
+    {
+        return asset.asset_name == item_type;
+    });
+    if (it == assets_.end())
     {
         return;
     }
@@ -298,9 +304,12 @@ QString MapEditorForm::GetCurrentVariableType()
         return QString();
     }
 
-    const kv::CoreInterface::ObjectsMetadata& objects_metadata = objects_metadata_;
-    auto it = objects_metadata.find(ee->item_type);
-    if (it == objects_metadata.end())
+    auto it = std::find_if(assets_.begin(), assets_.end(),
+    [&](const Asset& asset)
+    {
+        return asset.asset_name == ee->item_type;
+    });
+    if (it == assets_.end())
     {
         return QString();
     }
@@ -422,93 +431,6 @@ void MapEditorForm::on_listWidgetVariables_itemSelectionChanged()
     }
 
     UpdateVariablesColor(*ee);
-}
-
-void MapEditorForm::on_lineEditAsString_returnPressed()
-{
-    if (!ui->listWidgetVariables->currentItem())
-    {
-        return;
-    }
-
-    MapEditor::EditorEntry* ee = GetCurrentEditorEntry();
-    if (!ee)
-    {
-        return;
-    }
-
-    // TODO: remove all function
-    /*const QString current_variable = ui->listWidgetVariables->currentItem()->text();
-    const QString variable_value = ui->lineEditAsString->text();
-
-    ee->variables[current_variable] = QJsonObject{{mapgen::key::type::STRING, variable_value}};
-
-    on_listWidgetVariables_itemSelectionChanged();
-    UpdateVariablesColor(*ee);*/
-}
-
-void MapEditorForm::on_lineEditAsInt_returnPressed()
-{
-    if (!ui->listWidgetVariables->currentItem())
-    {
-        return;
-    }
-
-    MapEditor::EditorEntry* ee = GetCurrentEditorEntry();
-    if (!ee)
-    {
-        return;
-    }
-
-    const QString current_variable = ui->listWidgetVariables->currentItem()->text();
-
-    // TODO: remove whole function
-    /*const QString loc = ui->lineEditAsInt->text();
-
-    bool ok = false;
-    const int value = loc.toInt(&ok);
-    if (!ok)
-    {
-        return;
-    }
-
-    ee->variables[current_variable] = QJsonObject{{mapgen::key::type::INT32, value}};
-
-    on_listWidgetVariables_itemSelectionChanged();
-    UpdateVariablesColor(*ee);
-
-    map_editor_->UpdateDirs(ee);*/
-}
-
-void MapEditorForm::on_lineEditAsBool_returnPressed()
-{
-    if (!ui->listWidgetVariables->currentItem())
-    {
-        return;
-    }
-
-    MapEditor::EditorEntry* ee = GetCurrentEditorEntry();
-    if (!ee)
-    {
-        return;
-    }
-
-    const QString current_variable = ui->listWidgetVariables->currentItem()->text();
-
-    // TODO: remove whole function
-    /*const QString loc = ui->lineEditAsBool->text();
-
-    bool ok = false;
-    const bool value = !!loc.toInt(&ok);
-    if (!ok)
-    {
-        return;
-    }
-
-    ee->variables[current_variable] = QJsonObject{{mapgen::key::type::BOOL, value}};;
-
-    on_listWidgetVariables_itemSelectionChanged();
-    UpdateVariablesColor(*ee);*/
 }
 
 void MapEditorForm::on_listWidgetTurf_clicked(const QModelIndex&)
@@ -669,6 +591,7 @@ namespace key
 const QString IS_TURF("is_turf");
 const QString SPRITE("sprite");
 const QString SPRITE_STATE("sprite_state");
+const QString ASSET_NAME("asset_name");
 const QString TYPENAME("typename");
 const QString VARIABLES("variables");
 const QString NAME("name");
@@ -691,6 +614,27 @@ void MapEditorForm::LoadAssets()
             continue;
         }
         QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-        qDebug() << document.object();
+        const QJsonObject asset_json = document.object();
+
+        // TODO: proper validation
+        Asset asset;
+        asset.turf = asset_json[key::IS_TURF].toBool();
+        asset.sprite = asset_json[key::SPRITE].toString();
+        asset.state = asset_json[key::SPRITE_STATE].toString();
+        asset.type_name = asset_json[key::TYPENAME].toString();
+        asset.asset_name = asset_json[key::ASSET_NAME].toString();
+
+        const QJsonArray variables = asset_json[key::VARIABLES].toArray();
+        for (const QJsonValue& value : variables)
+        {
+            const QJsonObject object = value.toObject();
+            Asset::VariableInfo info;
+            info.name = object[key::NAME].toString();
+            info.type = object[key::TYPE].toString();
+            asset.variables.append(info);
+        }
+
+        assets_.push_back(asset);
     }
+
 }

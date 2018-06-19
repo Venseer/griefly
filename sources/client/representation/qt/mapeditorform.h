@@ -31,7 +31,8 @@ public slots:
 
 struct Asset
 {
-    QString name;
+    QString type_name;
+    QString asset_name;
     QString sprite;
     QString state;
     bool turf;
@@ -71,17 +72,11 @@ private slots:
 
     void on_listWidgetVariables_itemSelectionChanged();
 
-    void on_lineEditAsString_returnPressed();
-
     void on_listWidgetTurf_clicked(const QModelIndex &index);
 
     void on_listWidget_clicked(const QModelIndex &index);
 
     void on_resizeMap_clicked();
-
-    void on_lineEditAsInt_returnPressed();
-
-    void on_lineEditAsBool_returnPressed();
 
     void on_saveMapJson_clicked();
 
@@ -109,8 +104,6 @@ private:
     // Metainfo
     std::vector<QString> types_;
     std::vector<QString> turf_types_;
-
-    kv::CoreInterface::ObjectsMetadata objects_metadata_;
 
     std::vector<Asset> assets_;
 
