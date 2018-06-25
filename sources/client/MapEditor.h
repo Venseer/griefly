@@ -15,6 +15,14 @@
 
 using MapgenVariablesType = QMap<QString, QJsonValue>;
 
+class SpriteCache
+{
+public:
+    const QVector<QPixmap>& GetSprite(const QString& sprite, const QString& state);
+private:
+    std::map<std::pair<QString, QString>, QVector<QPixmap>> sprites_;
+};
+
 class MapEditor : public QObject
 {
     Q_OBJECT
@@ -24,6 +32,8 @@ public:
         EditorEntry();
 
         QString item_type;
+        QString sprite_name;
+        QString state;
 
         MapgenVariablesType variables;
 
@@ -62,11 +72,11 @@ public:
 
     void Resize(int posx, int posy, int posz);
 
-    void AddItemType(const QString& item_type, const QVector<QPixmap>& images);
+    void AddItemType(const QString& item_type, const QString& sprite, const QString& state);
 
     void AddTurfType(const QString& item_type);
 
-    void AddItem(const QString& item_type);
+    void AddItem(const QString& item_type, const QString& sprite, const QString& state);
 
     void UpdateDirs(EditorEntry* ee);
 
@@ -74,11 +84,13 @@ public:
 
     void RemoveItems(int posx, int posy, int posz);
 
-    MapEditor::EditorEntry& AddItem(const QString& item_type, int posx, int posy, int posz);
+    MapEditor::EditorEntry& AddItem(
+        const QString& item_type, const QString& sprite, const QString& state, int posx, int posy, int posz);
 
-    void SetTurf(const QString& item_type);
+    void SetTurf(const QString& item_type, const QString& sprite, const QString& state);
 
-    MapEditor::EditorEntry& SetTurf(const QString& item_type, int posx, int posy, int posz);
+    MapEditor::EditorEntry& SetTurf(
+        const QString& item_type, const QString& sprite, const QString& state, int posx, int posy, int posz);
 
     void SetSelectionStage(int stage);
     int GetSelectionStage() const;
@@ -123,7 +135,8 @@ private:
 
     Pointer pointer_;
 
-    QMap<QString, QVector<QPixmap>> images_holder_;
+    QMap<QString, std::pair<QString, QString>> sprite_state_names_holder_;
+    SpriteCache sprite_cache_;
 
     QSet<QString> turf_types_;
 

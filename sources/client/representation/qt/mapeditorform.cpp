@@ -83,8 +83,6 @@ MapEditorForm::MapEditorForm(QWidget *parent)
             continue;
         }
 
-        QVector<QPixmap> images;
-
         View2 view;
         view.LoadViewInfo(view_info);
 
@@ -94,27 +92,22 @@ MapEditorForm::MapEditorForm(QWidget *parent)
             continue;
         }
 
-        for (quint32 dir = 0; dir < view.GetBaseFrameset().GetMetadata()->dirs; ++dir)
+        QPixmap pixmap = [&]()
         {
-            int current_frame_pos = view.GetBaseFrameset().GetMetadata()->first_frame_pos + dir;
+            const int current_frame_pos = view.GetBaseFrameset().GetMetadata()->first_frame_pos;
 
-            int image_state_h_ = current_frame_pos / view.GetBaseFrameset().GetSprite()->FrameW();
-            int image_state_w_ = current_frame_pos % view.GetBaseFrameset().GetSprite()->FrameW();
+            const int image_state_h_ = current_frame_pos / view.GetBaseFrameset().GetSprite()->FrameW();
+            const int image_state_w_ = current_frame_pos % view.GetBaseFrameset().GetSprite()->FrameW();
 
-            QImage img = view.GetBaseFrameset().GetSprite()->GetFrames()
+            QImage image = view.GetBaseFrameset().GetSprite()->GetFrames()
                 [image_state_w_ * view.GetBaseFrameset().GetSprite()->FrameH() + image_state_h_];
 
-            images.push_back(QPixmap::fromImage(img));
-        }
-        map_editor_->AddItemType(asset.asset_name, images);
-
-        if (images.length() == 0)
-        {
-            qDebug() << images.length();
-        }
+            return QPixmap::fromImage(image);
+        }();
+        map_editor_->AddItemType(asset.asset_name, asset.sprite, asset.state);
 
         QListWidgetItem* new_item
-            = new QListWidgetItem(QIcon(images[0]), asset.asset_name);
+            = new QListWidgetItem(QIcon(pixmap), asset.asset_name);
 
         if (!asset.turf)
         {
@@ -161,13 +154,18 @@ void MapEditorForm::newSelectionSetted(int first_x, int first_y, int second_x, i
 
 void MapEditorForm::on_createItem_clicked()
 {
-    int current_row = ui->listWidget->currentRow();
+    const int current_row = ui->listWidget->currentRow();
     if (current_row < 0)
     {
         return;
     }
-    QString type = types_[current_row];
-    map_editor_->AddItem(type);
+    const QString type = types_[current_row];
+    auto it = std::find_if(assets_.begin(), assets_.end(),
+    [&](const Asset& asset)
+    {
+        return asset.asset_name == type;
+    });
+    map_editor_->AddItem(type, it->sprite, it->state);
 }
 
 void MapEditorForm::mapClicked()
@@ -184,13 +182,18 @@ void MapEditorForm::mapClicked()
 
 void MapEditorForm::on_createTurf_clicked()
 {
-    int current_row = ui->listWidgetTurf->currentRow();
+    const int current_row = ui->listWidgetTurf->currentRow();
     if (current_row < 0)
     {
         return;
     }
-    QString type = turf_types_[current_row];
-    map_editor_->SetTurf(type);
+    const QString type = turf_types_[current_row];
+    auto it = std::find_if(assets_.begin(), assets_.end(),
+    [&](const Asset& asset)
+    {
+        return asset.asset_name == type;
+    });
+    map_editor_->SetTurf(type, it->sprite, it->state);
 }
 
 void MapEditorForm::on_beginSelection_clicked()
