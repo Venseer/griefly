@@ -169,7 +169,7 @@ void MapEditorForm::on_createItem_clicked()
     QVector<std::pair<QString, QJsonValue>> variables;
     for (auto variable_info : it->variables)
     {
-        if (variable_info.value.isNull())
+        if (variable_info.value.isNull() || variable_info.value.isUndefined())
         {
             continue;
         }
@@ -355,16 +355,26 @@ QString MapEditorForm::GetCurrentVariableType()
         return QString();
     }
 
-    auto variable = std::find_if(variables.begin(), variables.end(), [name = current_item->text()](auto variable)
+    QString variable_type;
+    if (   current_item->text() == SPRITE_VARIABLE_NAME
+        || current_item->text() == STATE_VARIABLE_NAME)
     {
-        return variable.name == name;
-    });
-    if (variable == variables.end())
-    {
-        return QString();
+        variable_type = mapgen::key::type::STRING;
     }
-    ui->current_variable_type_label->setText(QString("Current type: %1").arg(variable->type));
-    return variable->type;
+    else
+    {
+        auto variable = std::find_if(variables.begin(), variables.end(), [name = current_item->text()](auto variable)
+        {
+            return variable.name == name;
+        });
+        if (variable == variables.end())
+        {
+            return QString();
+        }
+        variable_type = variable->type;
+    }
+    ui->current_variable_type_label->setText(QString("Current type: %1").arg(variable_type));
+    return variable_type;
 }
 
 void MapEditorForm::ResetVariablesPanel()
@@ -383,7 +393,8 @@ void MapEditorForm::ResetVariablesPanel()
 
 void MapEditorForm::UpdateVariablesColor(MapEditor::EditorEntry& ee)
 {
-    for (int i = 0; i < ui->listWidgetVariables->count(); ++i)
+    // Last two always built-in sprite/state
+    for (int i = 0; i < ui->listWidgetVariables->count() - 2; ++i)
     {
         if (!ee.variables[ui->listWidgetVariables->item(i)->text()].isNull())
         {
@@ -410,8 +421,20 @@ void MapEditorForm::on_listWidgetVariables_itemSelectionChanged()
         return;
     }
 
-    const QJsonObject& variable_object
-        = ee->variables[ui->listWidgetVariables->currentItem()->text()].toObject();
+    const QString current_variable_name = ui->listWidgetVariables->currentItem()->text();
+
+    const QJsonObject& variable_object = [&]()
+    {
+        if (current_variable_name == SPRITE_VARIABLE_NAME)
+        {
+            return QJsonObject{{mapgen::key::type::STRING, ee->sprite_name}};
+        }
+        if (current_variable_name == STATE_VARIABLE_NAME)
+        {
+            return QJsonObject{{mapgen::key::type::STRING, ee->state}};
+        }
+        return ee->variables[current_variable_name].toObject();
+    }();
 
     ui->frame->show();
 
@@ -584,7 +607,18 @@ void MapEditorForm::on_set_value_push_button_clicked()
     if (type == mapgen::key::type::STRING)
     {
         const QString variable_value = ui->string_line_edit->text();
-        ee->variables[current_variable] = QJsonObject{{mapgen::key::type::STRING, variable_value}};
+        if (current_variable == SPRITE_VARIABLE_NAME)
+        {
+            ee->sprite_name = variable_value;
+        }
+        else if (current_variable == STATE_VARIABLE_NAME)
+        {
+            ee->state = variable_value;
+        }
+        else
+        {
+            ee->variables[current_variable] = QJsonObject{{mapgen::key::type::STRING, variable_value}};
+        }
     }
     else if (type == mapgen::key::type::INT32)
     {
@@ -598,6 +632,7 @@ void MapEditorForm::on_set_value_push_button_clicked()
     }
 
     on_listWidgetVariables_itemSelectionChanged();
+    map_editor_->UpdateSprite(ee);
     UpdateVariablesColor(*ee);
 }
 
